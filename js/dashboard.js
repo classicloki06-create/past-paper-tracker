@@ -12,6 +12,7 @@ const state = {
   catalogues: [],
   subjects: [],
   attempts: [],
+  currentCatalogueId: sessionStorage.getItem("currentCatalogueId") || "",
   selectedCatalogue: null,
   selectedPaper: null
 };
@@ -23,10 +24,6 @@ function destroyCharts() {
   charts = [];
 }
 
-function catalogueLabel(catalogue) {
-  return `${catalogue.data.subject} ${catalogue.data.qualification} · ${catalogue.data.syllabusCode}`;
-}
-
 function paperIdCounts(catalogues = state.catalogues) {
   return flattenPapers(catalogues).reduce((counts, paper) => {
     counts[paper.id] = (counts[paper.id] || 0) + 1;
@@ -35,6 +32,7 @@ function paperIdCounts(catalogues = state.catalogues) {
 }
 
 function attemptBelongsToCatalogue(attempt, catalogue, counts = paperIdCounts()) {
+  if (!catalogue?.papers) return false;
   const paperIds = new Set(catalogue.papers.map((paper) => paper.id));
   if (attempt.catalogueId) return attempt.catalogueId === catalogue.id;
   return paperIds.has(attempt.paperId) && counts[attempt.paperId] === 1;
@@ -48,7 +46,7 @@ function attemptsForCatalogue(catalogue) {
 }
 
 function buildAnalytics(catalogue) {
-  const papers = catalogue.papers;
+  const papers = catalogue?.papers || [];
   const paperIds = new Set(papers.map((paper) => paper.id));
   const attempts = attemptsForCatalogue(catalogue).filter((attempt) => paperIds.has(attempt.paperId));
   const validAttempts = attempts.filter((attempt) => Number.isFinite(attempt.percentage));
@@ -91,16 +89,16 @@ function buildAnalytics(catalogue) {
     recentAverage: average(recent.map((attempt) => attempt.percentage)),
     paperAverages,
     bestPaper: ranked[0] || null,
-    weakestPaper: ranked[ranked.length - 1] || null,
-    improvement: [...validAttempts].sort(compareAttempts).map((attempt) => ({
-      ...attempt,
-      paper: papers.find((paper) => paper.id === attempt.paperId)
-    }))
+    weakestPaper: ranked[ranked.length - 1] || null
   };
 }
 
 function renderSubjectCards() {
   destroyCharts();
+  state.currentCatalogueId = "";
+  state.selectedCatalogue = null;
+  state.selectedPaper = null;
+  sessionStorage.removeItem("currentCatalogueId");
   document.querySelector("#dashboard-title").textContent = "Choose a Subject";
   document.querySelector("#subject-selection").classList.remove("hidden");
   document.querySelector("#subject-view").classList.add("hidden");
@@ -134,12 +132,30 @@ function renderSubjectCards() {
 function showSubject(catalogueId) {
   const catalogue = state.subjects.find((item) => item.id === catalogueId);
   if (!catalogue) {
-    renderSubjectCards();
+    showMissingSubject();
+    return;
+  }
+
+  state.currentCatalogueId = catalogue.id;
+  state.selectedCatalogue = catalogue;
+  sessionStorage.setItem("currentCatalogueId", catalogue.id);
+
+  const nextHash = `catalogue=${encodeURIComponent(catalogue.id)}`;
+  if (window.location.hash.slice(1) !== nextHash) {
+    history.replaceState(null, "", `#${nextHash}`);
+  }
+
+  renderSelectedSubject();
+}
+
+function renderSelectedSubject() {
+  const catalogue = state.selectedCatalogue || state.subjects.find((item) => item.id === state.currentCatalogueId);
+  if (!catalogue) {
+    showMissingSubject();
     return;
   }
 
   state.selectedCatalogue = catalogue;
-  window.location.hash = `catalogue=${encodeURIComponent(catalogue.id)}`;
   document.querySelector("#dashboard-title").textContent = catalogue.data.subject;
   document.querySelector("#subject-selection").classList.add("hidden");
   document.querySelector("#subject-view").classList.remove("hidden");
@@ -150,6 +166,26 @@ function showSubject(catalogueId) {
   renderStats(analytics, catalogue);
   renderCharts(analytics);
   renderChecklist(catalogue, analytics.attempts);
+}
+
+function showMissingSubject() {
+  destroyCharts();
+  state.currentCatalogueId = "";
+  state.selectedCatalogue = null;
+  state.selectedPaper = null;
+  sessionStorage.removeItem("currentCatalogueId");
+  document.querySelector("#dashboard-title").textContent = "Choose a Subject";
+  document.querySelector("#subject-selection").classList.add("hidden");
+  document.querySelector("#subject-view").classList.remove("hidden");
+  document.querySelector("#subject-kicker").textContent = "";
+  document.querySelector("#subject-heading").textContent = "Selected subject could not be found";
+  document.querySelector("#stats-grid").innerHTML = "";
+  document.querySelector("#insight-grid").innerHTML = "";
+  document.querySelector("#charts-grid").classList.add("hidden");
+  document.querySelector("#dashboard-empty").classList.remove("hidden");
+  document.querySelector("#dashboard-empty h2").textContent = "This subject is not available.";
+  document.querySelector("#dashboard-empty p").textContent = "Go back to subjects or import the catalogue again.";
+  document.querySelector("#paper-checklist").innerHTML = "";
 }
 
 function renderStats(analytics, catalogue) {
@@ -184,41 +220,8 @@ function renderCharts(analytics) {
   const Chart = window.Chart;
   if (!Chart || !analytics.totalAttempts) return;
 
-  const improvementContext = document.querySelector("#improvement-chart");
   const paperAverageContext = document.querySelector("#paper-average-chart");
   const completionContext = document.querySelector("#completion-chart");
-
-  charts.push(new Chart(improvementContext, {
-    type: "line",
-    data: {
-      labels: analytics.improvement.map((attempt) => new Date(attemptMillis(attempt)).toLocaleDateString()),
-      datasets: [{
-        label: "Score %",
-        data: analytics.improvement.map((attempt) => ({
-          x: new Date(attemptMillis(attempt)).toLocaleDateString(),
-          y: attempt.percentage,
-          attempt
-        })),
-        borderColor: "#1b6b68",
-        backgroundColor: "rgba(27, 107, 104, 0.16)",
-        tension: 0.32,
-        fill: true
-      }]
-    },
-    options: chartOptions({
-      max: 100,
-      tooltipLabel: (context) => {
-        const attempt = context.raw.attempt;
-        const paperName = attempt.paper?.name || attempt.paperId;
-        const date = new Date(attemptMillis(attempt)).toLocaleDateString();
-        return [
-          paperName,
-          `${attempt.score}/${attempt.maximumMark} · ${formatPercent(attempt.percentage)}`,
-          date
-        ];
-      }
-    })
-  }));
 
   charts.push(new Chart(paperAverageContext, {
     type: "bar",
@@ -253,7 +256,7 @@ function renderCharts(analytics) {
   }));
 }
 
-function chartOptions({ max, tooltipLabel = null }) {
+function chartOptions({ max }) {
   return {
     responsive: true,
     maintainAspectRatio: false,
@@ -269,11 +272,6 @@ function chartOptions({ max, tooltipLabel = null }) {
     plugins: {
       legend: {
         display: false
-      },
-      tooltip: {
-        callbacks: tooltipLabel ? {
-          label: tooltipLabel
-        } : {}
       }
     }
   };
@@ -301,6 +299,11 @@ function sortPapersForChecklist(papers) {
 function renderChecklist(catalogue, subjectAttempts) {
   const checklist = document.querySelector("#paper-checklist");
   if (!checklist) return;
+
+  if (!catalogue?.papers?.length) {
+    checklist.innerHTML = `<section class="empty-state"><h2>No papers in this catalogue</h2><p>Import a catalogue that includes a papers array.</p></section>`;
+    return;
+  }
 
   const sortedPapers = sortPapersForChecklist(catalogue.papers);
   const years = groupBy(sortedPapers, (paper) => paper.year);
@@ -366,7 +369,10 @@ function renderChecklistPaper(paper, subjectAttempts) {
 function openCompletionModal(paperId) {
   const paper = state.selectedCatalogue?.papers.find((item) => item.id === paperId);
   const modal = document.querySelector("#completion-modal");
-  if (!paper || !modal) return;
+  if (!paper || !modal) {
+    showToast("Could not open this paper. Please reselect the subject.", "error");
+    return;
+  }
 
   state.selectedPaper = paper;
   document.querySelector("#modal-paper-meta").textContent = `${paper.year} ${paper.session} Variant ${paper.variant} · Paper ${paper.paper}`;
@@ -382,7 +388,7 @@ function openCompletionModal(paperId) {
 
 function openHistoryModal(paperId) {
   const paper = state.selectedCatalogue?.papers.find((item) => item.id === paperId);
-  const attempts = attemptsForPaper(attemptsForCatalogue(state.selectedCatalogue), paperId);
+  const attempts = state.selectedCatalogue ? attemptsForPaper(attemptsForCatalogue(state.selectedCatalogue), paperId) : [];
   const modal = document.querySelector("#history-modal");
   if (!paper || !modal) return;
 
@@ -404,7 +410,12 @@ async function saveAttempt(event) {
   const paper = state.selectedPaper;
   const message = document.querySelector("#modal-message");
   const score = Number(document.querySelector("#score-input").value);
-  if (!paper || !state.selectedCatalogue) return;
+  const catalogue = state.selectedCatalogue || state.subjects.find((item) => item.id === state.currentCatalogueId);
+
+  if (!paper || !catalogue) {
+    message.textContent = "Could not find the selected subject. Please go back and choose the subject again.";
+    return;
+  }
 
   if (!Number.isFinite(score)) {
     message.textContent = "Enter a numeric score.";
@@ -419,21 +430,34 @@ async function saveAttempt(event) {
     return;
   }
 
-  const paperAttempts = attemptsForPaper(attemptsForCatalogue(state.selectedCatalogue), paper.id);
-  await addDoc(collection(db, "users", state.user.uid, "attempts"), {
-    catalogueId: state.selectedCatalogue.id,
+  const paperAttempts = attemptsForPaper(attemptsForCatalogue(catalogue), paper.id);
+  const attempt = {
+    catalogueId: catalogue.id,
     paperId: paper.id,
     score,
     maximumMark: paper.maximumMark,
     percentage: Number(((score / paper.maximumMark) * 100).toFixed(3)),
     completedAt: serverTimestamp(),
     attemptNumber: paperAttempts.length + 1
-  });
+  };
 
-  state.attempts = await loadAttempts(state.user.uid);
-  document.querySelector("#completion-modal").close();
-  showSubject(state.selectedCatalogue.id);
-  showToast("Attempt saved.");
+  try {
+    const attemptRef = await addDoc(collection(db, "users", state.user.uid, "attempts"), attempt);
+    state.attempts = [...state.attempts, {
+      ...attempt,
+      id: attemptRef.id,
+      completedAt: new Date().toISOString()
+    }].sort(compareAttempts);
+    state.currentCatalogueId = catalogue.id;
+    state.selectedCatalogue = catalogue;
+    sessionStorage.setItem("currentCatalogueId", catalogue.id);
+    document.querySelector("#completion-modal").close();
+    renderSelectedSubject();
+    showToast("Attempt saved.");
+  } catch (error) {
+    console.error("Failed to save attempt:", error);
+    message.textContent = "Could not save your score. Please try again.";
+  }
 }
 
 function wireEvents() {
@@ -443,8 +467,7 @@ function wireEvents() {
   });
 
   document.querySelector("#back-to-subjects")?.addEventListener("click", () => {
-    window.location.hash = "";
-    state.selectedCatalogue = null;
+    history.replaceState(null, "", window.location.pathname);
     renderSubjectCards();
   });
 
@@ -455,13 +478,7 @@ function wireEvents() {
     if (historyId) openHistoryModal(historyId);
   });
 
-  document.querySelector("#completion-form")?.addEventListener("submit", async (event) => {
-    try {
-      await saveAttempt(event);
-    } catch (error) {
-      document.querySelector("#modal-message").textContent = "Could not save attempt. Check your Firebase setup and try again.";
-    }
-  });
+  document.querySelector("#completion-form")?.addEventListener("submit", saveAttempt);
   document.querySelector("#cancel-completion")?.addEventListener("click", () => document.querySelector("#completion-modal")?.close());
   document.querySelector("#cancel-completion-x")?.addEventListener("click", () => document.querySelector("#completion-modal")?.close());
   document.querySelector("#close-history")?.addEventListener("click", () => document.querySelector("#history-modal")?.close());
@@ -486,10 +503,11 @@ async function initDashboard(user) {
     document.querySelector("#dashboard-loading")?.classList.add("hidden");
     document.querySelector("#dashboard-content")?.classList.remove("hidden");
 
-    const catalogueId = new URLSearchParams(window.location.hash.slice(1)).get("catalogue");
+    const catalogueId = new URLSearchParams(window.location.hash.slice(1)).get("catalogue") || state.currentCatalogueId;
     if (catalogueId) showSubject(catalogueId);
     else renderSubjectCards();
   } catch (error) {
+    console.error("Failed to load dashboard:", error);
     document.querySelector("#dashboard-loading")?.classList.add("hidden");
     const errorBox = document.querySelector("#dashboard-error");
     errorBox.textContent = error.message || "Could not load dashboard.";
