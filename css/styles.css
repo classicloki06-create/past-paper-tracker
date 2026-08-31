@@ -237,7 +237,6 @@ h2 {
 
 .hero-panel,
 .auth-card,
-.chart-card,
 .stat-card,
 .insight-card,
 .paper-card,
@@ -464,7 +463,6 @@ select:focus {
 
 .stat-card,
 .insight-card,
-.chart-card,
 .paper-card,
 .loading-card,
 .empty-state {
@@ -550,22 +548,6 @@ select:focus {
   display: block;
   margin-top: 8px;
   font-size: 1.15rem;
-}
-
-.charts-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  margin-top: 16px;
-}
-
-.chart-card:first-child {
-  grid-column: 1 / -1;
-}
-
-.chart-card canvas {
-  width: 100%;
-  min-height: 280px;
 }
 
 .filter-panel {
@@ -986,7 +968,6 @@ select:focus {
 
 @media (max-width: 900px) {
   .landing-hero,
-  .charts-grid,
   .insight-grid {
     grid-template-columns: 1fr;
   }
