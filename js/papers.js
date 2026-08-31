@@ -3,8 +3,10 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
-  serverTimestamp
+  serverTimestamp,
+  setDoc
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { db } from "./firebase.js";
 import { formatDate, formatPercent, requireAuth, showToast, wireLogout } from "./app.js";
@@ -14,7 +16,8 @@ const state = {
   catalogues: [],
   papers: [],
   attempts: [],
-  selectedPaper: null
+  selectedPaper: null,
+  pendingCatalogueReplacement: null
 };
 
 export async function loadCatalogue(uid = null) {
@@ -332,6 +335,43 @@ function sanitizeCatalogue(data) {
   };
 }
 
+function stableCatalogueId(catalogue) {
+  return [catalogue.board, catalogue.syllabusCode, catalogue.qualification]
+    .map((value) => String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""))
+    .join("_");
+}
+
+function showReplacementModal(catalogue, catalogueId, existingRef) {
+  state.pendingCatalogueReplacement = { catalogue, catalogueId, existingRef };
+  document.querySelector("#replace-catalogue-message").textContent = `${catalogue.subject} ${catalogue.qualification} ${catalogue.syllabusCode} already exists. Replacing it will update the catalogue papers, but it will not delete any historical attempts.`;
+  document.querySelector("#replace-catalogue-modal")?.showModal();
+}
+
+async function saveImportedCatalogue(catalogue, catalogueId, result) {
+  await setDoc(doc(db, "users", state.user.uid, "catalogues", catalogueId), {
+    ...catalogue,
+    importedBy: state.user.uid,
+    importedAt: serverTimestamp()
+  });
+
+  state.catalogues = await loadCatalogue(state.user.uid);
+  state.papers = flattenPapers(state.catalogues);
+  populateFilters();
+  renderImportedCatalogues();
+  renderPapers();
+  result.classList.add("success");
+  result.innerHTML = `
+    <strong>Successfully imported</strong>
+    <dl>
+      <div><dt>Subject</dt><dd>${catalogue.subject}</dd></div>
+      <div><dt>Level</dt><dd>${catalogue.qualification}</dd></div>
+      <div><dt>Syllabus</dt><dd>${catalogue.syllabusCode}</dd></div>
+      <div><dt>Papers</dt><dd>${catalogue.papers.length}</dd></div>
+    </dl>
+  `;
+  showToast("Catalogue imported.");
+}
+
 async function handleJsonImport(event) {
   const file = event.target.files?.[0];
   event.target.value = "";
@@ -343,7 +383,13 @@ async function handleJsonImport(event) {
 
   try {
     const parsed = JSON.parse(await file.text());
-    const existingPaperIds = new Set(state.papers.map((paper) => paper.id));
+    const precheckedCatalogue = sanitizeCatalogue(parsed);
+    const catalogueId = stableCatalogueId(precheckedCatalogue);
+    const existingRef = doc(db, "users", state.user.uid, "catalogues", catalogueId);
+    const existingDoc = await getDoc(existingRef);
+    const existingPaperIds = new Set(state.papers
+      .filter((paper) => paper.catalogueId !== catalogueId)
+      .map((paper) => paper.id));
     const errors = validateCatalogue(parsed, existingPaperIds);
 
     if (errors.length) {
@@ -351,29 +397,14 @@ async function handleJsonImport(event) {
       return;
     }
 
-    const catalogue = sanitizeCatalogue(parsed);
-    await addDoc(collection(db, "users", state.user.uid, "catalogues"), {
-      ...catalogue,
-      importedBy: state.user.uid,
-      importedAt: serverTimestamp()
-    });
+    const catalogue = precheckedCatalogue;
+    if (existingDoc.exists()) {
+      showReplacementModal(catalogue, catalogueId, existingRef);
+      result.textContent = "A catalogue with this board, syllabus, and level already exists.";
+      return;
+    }
 
-    state.catalogues = await loadCatalogue(state.user.uid);
-    state.papers = flattenPapers(state.catalogues);
-    populateFilters();
-    renderImportedCatalogues();
-    renderPapers();
-    result.classList.add("success");
-    result.innerHTML = `
-      <strong>Successfully imported</strong>
-      <dl>
-        <div><dt>Subject</dt><dd>${catalogue.subject}</dd></div>
-        <div><dt>Level</dt><dd>${catalogue.qualification}</dd></div>
-        <div><dt>Syllabus</dt><dd>${catalogue.syllabusCode}</dd></div>
-        <div><dt>Papers</dt><dd>${catalogue.papers.length}</dd></div>
-      </dl>
-    `;
-    showToast("Catalogue imported.");
+    await saveImportedCatalogue(catalogue, catalogueId, result);
   } catch (error) {
     const message = error instanceof SyntaxError
       ? "The selected file is not valid JSON."
@@ -461,6 +492,7 @@ async function saveAttempt(event) {
   const paperAttempts = attemptsForPaper(state.attempts, paper.id);
   const attempt = {
     paperId: paper.id,
+    catalogueId: paper.catalogueId,
     score,
     maximumMark: paper.maximumMark,
     percentage: Number(((score / paper.maximumMark) * 100).toFixed(3)),
@@ -494,6 +526,16 @@ function wirePaperEvents() {
 
   document.querySelector("#completion-form")?.addEventListener("submit", saveAttempt);
   document.querySelector("#json-import-input")?.addEventListener("change", handleJsonImport);
+  document.querySelector("#replace-catalogue-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const pending = state.pendingCatalogueReplacement;
+    if (!pending) return;
+    await saveImportedCatalogue(pending.catalogue, pending.catalogueId, document.querySelector("#import-result"));
+    state.pendingCatalogueReplacement = null;
+    document.querySelector("#replace-catalogue-modal")?.close();
+  });
+  document.querySelector("#cancel-replace")?.addEventListener("click", () => document.querySelector("#replace-catalogue-modal")?.close());
+  document.querySelector("#cancel-replace-x")?.addEventListener("click", () => document.querySelector("#replace-catalogue-modal")?.close());
   document.querySelector("#imported-catalogues")?.addEventListener("click", (event) => {
     const catalogueId = event.target.closest("[data-remove-catalogue]")?.dataset.removeCatalogue;
     if (catalogueId) removeCatalogue(catalogueId);
