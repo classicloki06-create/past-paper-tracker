@@ -146,6 +146,30 @@ button {
   color: var(--ink);
 }
 
+.button-google {
+  width: 100%;
+  background: #fff;
+  border-color: var(--line);
+  color: var(--ink);
+  box-shadow: 0 8px 22px rgba(23, 32, 51, 0.08);
+}
+
+.button-google:hover {
+  border-color: #c3ccd8;
+  background: #fbfcfe;
+}
+
+.google-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: #4285f4;
+  font-weight: 900;
+}
+
 .button-ghost {
   background: #fff;
   color: var(--primary);
@@ -369,6 +393,24 @@ select:focus {
 
 .form-message.success {
   color: var(--good);
+}
+
+.auth-divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  height: 1px;
+  background: var(--line);
 }
 
 .auth-links {
