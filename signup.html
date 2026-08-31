@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Create Account | Past Paper Tracker</title>
+    <link rel="stylesheet" href="css/styles.css">
+  </head>
+  <body class="auth-page">
+    <main class="auth-shell">
+      <a class="brand auth-brand" href="index.html">
+        <span class="brand-mark">P</span>
+        <span>Past Paper Tracker</span>
+      </a>
+      <section class="auth-card" aria-labelledby="signup-title">
+        <h1 id="signup-title">Create your tracker</h1>
+        <p>Start saving scores and watching your revision trend upward.</p>
+        <form id="signup-form" class="stacked-form" novalidate>
+          <label for="signup-name">Name</label>
+          <input id="signup-name" name="name" type="text" autocomplete="name" required>
+          <label for="signup-email">Email</label>
+          <input id="signup-email" name="email" type="email" autocomplete="email" required>
+          <label for="signup-password">Password</label>
+          <input id="signup-password" name="password" type="password" autocomplete="new-password" minlength="6" required>
+          <label for="signup-confirm">Confirm password</label>
+          <input id="signup-confirm" name="confirm" type="password" autocomplete="new-password" minlength="6" required>
+          <p id="auth-message" class="form-message" role="status" aria-live="polite"></p>
+          <button class="button button-primary" type="submit">Create account</button>
+        </form>
+        <div class="auth-links">
+          <a href="login.html">Already have an account?</a>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="js/auth.js"></script>
+  </body>
+</html>

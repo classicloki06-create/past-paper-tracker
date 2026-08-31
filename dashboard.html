@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dashboard | Past Paper Tracker</title>
+    <link rel="stylesheet" href="css/styles.css">
+  </head>
+  <body>
+    <header class="site-header app-header">
+      <a class="brand" href="dashboard.html">
+        <span class="brand-mark">P</span>
+        <span>Past Paper Tracker</span>
+      </a>
+      <nav class="nav" aria-label="Primary">
+        <a class="active" href="dashboard.html">Dashboard</a>
+        <a href="papers.html">Papers</a>
+        <button id="logout-button" class="button button-secondary" type="button">Logout</button>
+      </nav>
+    </header>
+
+    <main class="app-shell">
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">Your study command centre</p>
+          <h1>Dashboard</h1>
+        </div>
+        <a class="button button-primary" href="papers.html">Record a Paper</a>
+      </section>
+
+      <section id="dashboard-loading" class="loading-card">Loading your progress...</section>
+      <section id="dashboard-error" class="empty-state hidden" role="alert"></section>
+
+      <section id="dashboard-content" class="hidden">
+        <div class="stats-grid" id="stats-grid"></div>
+        <div class="insight-grid" id="insight-grid"></div>
+
+        <section id="dashboard-empty" class="empty-state hidden">
+          <h2>No attempts yet</h2>
+          <p>Complete a paper from the browser to unlock trends, averages, and progress charts.</p>
+          <a class="button button-primary" href="papers.html">Browse Papers</a>
+        </section>
+
+        <section class="charts-grid" id="charts-grid">
+          <article class="chart-card">
+            <h2>Score Improvement Over Time</h2>
+            <canvas id="improvement-chart" aria-label="Score improvement over time" role="img"></canvas>
+          </article>
+          <article class="chart-card">
+            <h2>Average Performance by Paper</h2>
+            <canvas id="paper-average-chart" aria-label="Average performance by paper number" role="img"></canvas>
+          </article>
+          <article class="chart-card">
+            <h2>Completion Progress</h2>
+            <canvas id="completion-chart" aria-label="Completion progress" role="img"></canvas>
+          </article>
+        </section>
+      </section>
+    </main>
+
+    <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script type="module" src="js/dashboard.js"></script>
+  </body>
+</html>

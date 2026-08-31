@@ -1,0 +1,11 @@
+{
+  "catalogues": [
+    {
+      "board": "CIE",
+      "subject": "Chemistry",
+      "code": "9701",
+      "qualification": "AS",
+      "path": "data/cie/chemistry/9701/as.json"
+    }
+  ]
+}

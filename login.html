@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Login | Past Paper Tracker</title>
+    <link rel="stylesheet" href="css/styles.css">
+  </head>
+  <body class="auth-page">
+    <main class="auth-shell">
+      <a class="brand auth-brand" href="index.html">
+        <span class="brand-mark">P</span>
+        <span>Past Paper Tracker</span>
+      </a>
+      <section class="auth-card" aria-labelledby="login-title">
+        <h1 id="login-title">Welcome back</h1>
+        <p>Log in to continue tracking your past-paper progress.</p>
+        <form id="login-form" class="stacked-form" novalidate>
+          <label for="login-email">Email</label>
+          <input id="login-email" name="email" type="email" autocomplete="email" required>
+          <label for="login-password">Password</label>
+          <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+          <p id="auth-message" class="form-message" role="status" aria-live="polite"></p>
+          <button class="button button-primary" type="submit">Login</button>
+        </form>
+        <div class="auth-links">
+          <a href="signup.html">Create account</a>
+          <button id="reset-password" class="link-button" type="button">Forgot password</button>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="js/auth.js"></script>
+  </body>
+</html>

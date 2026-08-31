@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Papers | Past Paper Tracker</title>
+    <link rel="stylesheet" href="css/styles.css">
+  </head>
+  <body>
+    <header class="site-header app-header">
+      <a class="brand" href="dashboard.html">
+        <span class="brand-mark">P</span>
+        <span>Past Paper Tracker</span>
+      </a>
+      <nav class="nav" aria-label="Primary">
+        <a href="dashboard.html">Dashboard</a>
+        <a class="active" href="papers.html">Papers</a>
+        <button id="logout-button" class="button button-secondary" type="button">Logout</button>
+      </nav>
+    </header>
+
+    <main class="app-shell">
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">CIE paper catalogue</p>
+          <h1>Past Papers</h1>
+        </div>
+      </section>
+
+      <section class="filter-panel" aria-label="Paper filters">
+        <label for="filter-catalogue">Catalogue</label>
+        <select id="filter-catalogue"></select>
+        <label for="filter-year">Year</label>
+        <select id="filter-year"></select>
+        <label for="filter-session">Session</label>
+        <select id="filter-session"></select>
+        <label for="filter-variant">Variant</label>
+        <select id="filter-variant"></select>
+        <label for="filter-paper">Paper</label>
+        <select id="filter-paper"></select>
+        <label for="filter-status">Status</label>
+        <select id="filter-status">
+          <option value="all">All</option>
+          <option value="completed">Completed</option>
+          <option value="not-completed">Not completed</option>
+        </select>
+      </section>
+
+      <section id="papers-loading" class="loading-card">Loading papers...</section>
+      <section id="papers-error" class="empty-state hidden" role="alert"></section>
+      <section id="papers-summary" class="summary-strip hidden"></section>
+      <section id="papers-list" class="paper-list" aria-live="polite"></section>
+      <section id="papers-empty" class="empty-state hidden">
+        <h2>No papers match those filters</h2>
+        <p>Try changing the year, session, variant, paper number, or completion status.</p>
+      </section>
+    </main>
+
+    <dialog id="completion-modal" class="modal">
+      <form id="completion-form" method="dialog" class="modal-card">
+        <button class="modal-close" value="cancel" aria-label="Close" type="button">&times;</button>
+        <p class="eyebrow" id="modal-paper-meta"></p>
+        <h2 id="modal-title">How did you score?</h2>
+        <label for="score-input">Score</label>
+        <div class="score-entry">
+          <input id="score-input" name="score" type="number" min="0" step="1" inputmode="numeric" required>
+          <span id="maximum-mark-label">/ 0</span>
+        </div>
+        <p id="modal-message" class="form-message" role="status" aria-live="polite"></p>
+        <div class="modal-actions">
+          <button class="button button-secondary" type="button" id="cancel-completion">Cancel</button>
+          <button class="button button-primary" type="submit">Save Attempt</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="history-modal" class="modal">
+      <div class="modal-card">
+        <button class="modal-close" aria-label="Close" type="button" id="close-history">&times;</button>
+        <p class="eyebrow" id="history-meta"></p>
+        <h2>Attempt History</h2>
+        <div id="history-list" class="history-list"></div>
+      </div>
+    </dialog>
+
+    <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+    <script type="module" src="js/papers.js"></script>
+  </body>
+</html>
