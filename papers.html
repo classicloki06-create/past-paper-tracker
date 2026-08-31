@@ -94,6 +94,19 @@
       </div>
     </dialog>
 
+    <dialog id="replace-catalogue-modal" class="modal">
+      <form id="replace-catalogue-form" method="dialog" class="modal-card">
+        <button class="modal-close" aria-label="Close" type="button" id="cancel-replace-x">&times;</button>
+        <p class="eyebrow">Duplicate catalogue</p>
+        <h2>Replace existing catalogue?</h2>
+        <p id="replace-catalogue-message" class="muted-text"></p>
+        <div class="modal-actions">
+          <button class="button button-secondary" type="button" id="cancel-replace">Cancel</button>
+          <button class="button button-primary" type="submit">Replace Catalogue</button>
+        </div>
+      </form>
+    </dialog>
+
     <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
     <script type="module" src="js/papers.js"></script>
   </body>
