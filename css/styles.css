@@ -492,6 +492,60 @@ select:focus {
   margin-top: 14px;
 }
 
+.subject-selection {
+  display: grid;
+  gap: 16px;
+}
+
+.subject-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.subject-card {
+  display: grid;
+  gap: 10px;
+  min-height: 220px;
+  padding: 18px;
+  text-align: left;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  color: var(--ink);
+}
+
+.subject-card:hover {
+  border-color: #aaccc7;
+  transform: translateY(-2px);
+}
+
+.subject-card strong {
+  font-size: 1.7rem;
+}
+
+.subject-card span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.subject-card b {
+  font-size: 1.25rem;
+}
+
+.subject-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.subject-toolbar h2 {
+  margin: 0;
+  font-size: clamp(1.5rem, 4vw, 2.3rem);
+}
+
 .insight-card strong {
   display: block;
   margin-top: 8px;
@@ -640,6 +694,112 @@ select:focus {
 .paper-list {
   display: grid;
   gap: 14px;
+}
+
+.paper-checklist {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.year-section {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.year-section summary {
+  cursor: pointer;
+  padding: 16px 18px;
+  font-size: 1.4rem;
+  font-weight: 900;
+  border-bottom: 1px solid var(--line);
+}
+
+.year-section:not([open]) summary {
+  border-bottom: 0;
+}
+
+.session-group {
+  padding: 16px 18px 18px;
+}
+
+.session-group + .session-group {
+  border-top: 1px solid var(--line);
+}
+
+.session-group h3 {
+  margin: 0 0 12px;
+  color: var(--primary-dark);
+  font-size: 1.05rem;
+}
+
+.variant-group {
+  display: grid;
+  gap: 10px;
+}
+
+.variant-group + .variant-group {
+  margin-top: 16px;
+}
+
+.variant-group h4 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.checklist-paper {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--page);
+}
+
+.checklist-paper-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: 0;
+}
+
+.checkmark {
+  font-size: 1.35rem;
+  color: var(--primary);
+}
+
+.checklist-paper-main strong,
+.checklist-paper-main em,
+.checklist-score strong,
+.checklist-score span {
+  display: block;
+}
+
+.checklist-paper-main em {
+  color: var(--muted);
+  font-style: normal;
+  font-size: 0.9rem;
+  margin-top: 3px;
+}
+
+.checklist-score {
+  text-align: right;
+}
+
+.checklist-score span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  margin-top: 3px;
 }
 
 .paper-card {
@@ -849,6 +1009,7 @@ select:focus {
   .site-header,
   .app-header,
   .page-heading,
+  .subject-toolbar,
   .paper-card-header,
   .paper-actions,
   .summary-strip,
@@ -883,5 +1044,14 @@ select:focus {
   .paper-meta,
   .import-result dl {
     grid-template-columns: 1fr;
+  }
+
+  .checklist-paper {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .checklist-score {
+    text-align: left;
   }
 }
