@@ -25,6 +25,17 @@
           <p class="eyebrow">CIE paper catalogue</p>
           <h1>Past Papers</h1>
         </div>
+        <label class="button button-primary import-button" for="json-import-input">Import JSON</label>
+        <input id="json-import-input" class="visually-hidden" type="file" accept="application/json,.json">
+      </section>
+
+      <section class="import-panel" aria-labelledby="import-title">
+        <div>
+          <h2 id="import-title">Imported Catalogues</h2>
+          <p>Import a subject or qualification JSON file, then choose it from the catalogue selector below.</p>
+        </div>
+        <div id="import-result" class="import-result hidden" role="status" aria-live="polite"></div>
+        <div id="imported-catalogues" class="imported-catalogues"></div>
       </section>
 
       <section class="filter-panel" aria-label="Paper filters">
