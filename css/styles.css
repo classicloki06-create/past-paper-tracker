@@ -146,6 +146,16 @@ button {
   color: var(--ink);
 }
 
+.button-danger {
+  background: var(--bad);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(190, 59, 59, 0.2);
+}
+
+.button-danger:hover {
+  background: #9f2f2f;
+}
+
 .button-google {
   width: 100%;
   background: #fff;
@@ -519,6 +529,17 @@ select:focus {
   transform: translateY(-2px);
 }
 
+.subject-card-main {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  text-align: left;
+}
+
 .subject-card strong {
   font-size: 1.7rem;
 }
@@ -530,6 +551,19 @@ select:focus {
 
 .subject-card b {
   font-size: 1.25rem;
+}
+
+.subject-delete-button {
+  justify-self: start;
+  border: 0;
+  background: transparent;
+  color: var(--bad);
+  font-weight: 900;
+  padding: 6px 0 0;
+}
+
+.subject-delete-button:hover {
+  text-decoration: underline;
 }
 
 .subject-toolbar {
@@ -873,6 +907,10 @@ select:focus {
   width: min(460px, 100%);
 }
 
+.modal-wide {
+  width: min(620px, 100%);
+}
+
 .modal::backdrop {
   background: rgba(23, 32, 51, 0.52);
   backdrop-filter: blur(4px);
@@ -920,6 +958,15 @@ select:focus {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 20px;
+}
+
+.modal-actions-stacked {
+  flex-wrap: wrap;
+}
+
+.warning-text {
+  color: var(--bad);
+  font-weight: 800;
 }
 
 .history-list {
