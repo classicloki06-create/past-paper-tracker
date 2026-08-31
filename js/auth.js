@@ -1,7 +1,9 @@
 import {
   createUserWithEmailAndPassword,
+  GoogleAuthProvider,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
+  signInWithPopup,
   updateProfile
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { auth, firebaseReady } from "./firebase.js";
@@ -17,6 +19,11 @@ function showMessage(text, isSuccess = false) {
 
 function friendlyError(error) {
   const code = error?.code || "";
+  if (code.includes("popup-closed-by-user")) return "Google sign-in was closed before it finished.";
+  if (code.includes("popup-blocked")) return "Your browser blocked the Google sign-in popup. Allow popups for this site and try again.";
+  if (code.includes("account-exists-with-different-credential")) return "An account already exists with this email using a different sign-in method.";
+  if (code.includes("unauthorized-domain")) return "This domain is not authorized in Firebase Authentication yet.";
+  if (code.includes("operation-not-allowed")) return "Google sign-in is not enabled in Firebase Authentication yet.";
   if (code.includes("invalid-email")) return "Enter a valid email address.";
   if (code.includes("user-not-found") || code.includes("wrong-password") || code.includes("invalid-credential")) return "Email or password is incorrect.";
   if (code.includes("email-already-in-use")) return "An account already exists for this email.";
@@ -72,6 +79,23 @@ document.querySelector("#signup-form")?.addEventListener("submit", async (event)
     showMessage("Creating your account...", true);
     const credential = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(credential.user, { displayName: name });
+    window.location.href = "dashboard.html";
+  } catch (error) {
+    showMessage(friendlyError(error));
+  }
+});
+
+document.querySelector("#google-auth-button")?.addEventListener("click", async () => {
+  if (!firebaseReady) {
+    showMessage("Firebase is not configured yet. Add your web app values in js/firebase-config.js.");
+    return;
+  }
+
+  try {
+    showMessage("Opening Google sign-in...", true);
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    await signInWithPopup(auth, provider);
     window.location.href = "dashboard.html";
   } catch (error) {
     showMessage(friendlyError(error));
