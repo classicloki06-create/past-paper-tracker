@@ -1,6 +1,8 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
+  doc,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { db } from "./firebase.js";
@@ -16,7 +18,8 @@ const state = {
   selectedCatalogue: null,
   selectedPaper: null,
   expandedYears: new Set(),
-  lastActiveYear: null
+  lastActiveYear: null,
+  pendingDeleteCatalogue: null
 };
 
 function paperIdCounts(catalogues = state.catalogues) {
@@ -102,14 +105,17 @@ function renderSubjectCards() {
   grid.innerHTML = state.subjects.map((catalogue) => {
     const analytics = buildAnalytics(catalogue);
     return `
-      <button class="subject-card" data-catalogue-id="${catalogue.id}" type="button">
-        <span class="eyebrow">${catalogue.data.board}</span>
-        <strong>${catalogue.data.subject}</strong>
-        <span>${catalogue.data.qualification} · ${catalogue.data.syllabusCode}</span>
-        <span>${analytics.completedUnique} / ${analytics.totalPapers} completed</span>
-        <div class="progress-bar" aria-hidden="true"><span style="width: ${Math.min(analytics.completion, 100)}%"></span></div>
-        <b>${formatPercent(analytics.completion)}</b>
-      </button>
+      <article class="subject-card">
+        <button class="subject-card-main" data-catalogue-id="${catalogue.id}" type="button">
+          <span class="eyebrow">${catalogue.data.board}</span>
+          <strong>${catalogue.data.subject}</strong>
+          <span>${catalogue.data.qualification} · ${catalogue.data.syllabusCode}</span>
+          <span>${analytics.completedUnique} / ${analytics.totalPapers} completed</span>
+          <div class="progress-bar" aria-hidden="true"><span style="width: ${Math.min(analytics.completion, 100)}%"></span></div>
+          <b>${formatPercent(analytics.completion)}</b>
+        </button>
+        <button class="subject-delete-button" data-delete-catalogue-id="${catalogue.id}" type="button">Delete</button>
+      </article>
     `;
   }).join("");
 }
@@ -198,6 +204,74 @@ function renderStats(analytics, catalogue) {
   `;
 
   document.querySelector("#dashboard-empty").classList.toggle("hidden", analytics.totalAttempts > 0);
+}
+
+function subjectAttemptCount(catalogue) {
+  return attemptsForCatalogue(catalogue).length;
+}
+
+function openDeleteSubjectModal(catalogueId) {
+  const catalogue = state.subjects.find((item) => item.id === catalogueId);
+  if (!catalogue) return;
+
+  const count = subjectAttemptCount(catalogue);
+  state.pendingDeleteCatalogue = catalogue;
+  document.querySelector("#delete-subject-title").textContent = `Delete ${catalogue.data.subject} ${catalogue.data.qualification}?`;
+  document.querySelector("#delete-subject-message").textContent = `This will remove the imported ${catalogue.data.subject} catalogue from your subject list.`;
+  document.querySelector("#delete-subject-attempts").textContent = count
+    ? `You have ${count} saved attempt${count === 1 ? "" : "s"} for this subject.`
+    : "You do not have saved attempts for this subject.";
+  document.querySelector("#delete-subject-modal")?.showModal();
+}
+
+function closeDeleteSubjectModals() {
+  document.querySelector("#delete-subject-modal")?.close();
+  document.querySelector("#delete-scores-confirm-modal")?.close();
+  state.pendingDeleteCatalogue = null;
+}
+
+async function deleteSubject({ deleteScores }) {
+  const catalogue = state.pendingDeleteCatalogue;
+  if (!catalogue) return;
+
+  try {
+    const attemptsToDelete = deleteScores
+      ? attemptsForCatalogue(catalogue).filter((attempt) => attempt.catalogueId === catalogue.id)
+      : [];
+
+    for (const attempt of attemptsToDelete) {
+      await deleteDoc(doc(db, "users", state.user.uid, "attempts", attempt.id));
+    }
+
+    await deleteDoc(doc(db, "users", state.user.uid, "catalogues", catalogue.id));
+
+    state.catalogues = state.catalogues.filter((item) => item.id !== catalogue.id);
+    state.subjects = state.subjects.filter((item) => item.id !== catalogue.id);
+    state.attempts = deleteScores
+      ? state.attempts.filter((attempt) => !(attempt.catalogueId === catalogue.id))
+      : state.attempts;
+
+    if (state.currentCatalogueId === catalogue.id) {
+      history.replaceState(null, "", window.location.pathname);
+    }
+
+    closeDeleteSubjectModals();
+    renderSubjectCards();
+    showToast(deleteScores ? "Subject and linked scores deleted." : "Subject deleted. Scores were kept.");
+  } catch (error) {
+    console.error("Failed to delete subject:", error);
+    showToast("Could not delete subject. Please try again.", "error");
+  }
+}
+
+function openDeleteScoresConfirmModal() {
+  const catalogue = state.pendingDeleteCatalogue;
+  if (!catalogue) return;
+  const deleteCount = attemptsForCatalogue(catalogue).filter((attempt) => attempt.catalogueId === catalogue.id).length;
+  document.querySelector("#delete-scores-title").textContent = `Delete ${catalogue.data.subject} scores permanently?`;
+  document.querySelector("#delete-scores-message").textContent = `This will permanently delete ${deleteCount} saved score${deleteCount === 1 ? "" : "s"} linked to ${catalogue.data.subject} ${catalogue.data.qualification}. This cannot be undone.`;
+  document.querySelector("#delete-subject-modal")?.close();
+  document.querySelector("#delete-scores-confirm-modal")?.showModal();
 }
 
 function sessionRank(session) {
@@ -392,6 +466,12 @@ async function saveAttempt(event) {
 
 function wireEvents() {
   document.querySelector("#subject-grid")?.addEventListener("click", (event) => {
+    const deleteId = event.target.closest("[data-delete-catalogue-id]")?.dataset.deleteCatalogueId;
+    if (deleteId) {
+      openDeleteSubjectModal(deleteId);
+      return;
+    }
+
     const catalogueId = event.target.closest("[data-catalogue-id]")?.dataset.catalogueId;
     if (catalogueId) showSubject(catalogueId);
   });
@@ -418,6 +498,13 @@ function wireEvents() {
   document.querySelector("#cancel-completion")?.addEventListener("click", () => document.querySelector("#completion-modal")?.close());
   document.querySelector("#cancel-completion-x")?.addEventListener("click", () => document.querySelector("#completion-modal")?.close());
   document.querySelector("#close-history")?.addEventListener("click", () => document.querySelector("#history-modal")?.close());
+  document.querySelector("#cancel-delete-subject")?.addEventListener("click", closeDeleteSubjectModals);
+  document.querySelector("#cancel-delete-subject-x")?.addEventListener("click", closeDeleteSubjectModals);
+  document.querySelector("#delete-subject-keep-scores")?.addEventListener("click", () => deleteSubject({ deleteScores: false }));
+  document.querySelector("#delete-subject-with-scores")?.addEventListener("click", openDeleteScoresConfirmModal);
+  document.querySelector("#cancel-delete-scores")?.addEventListener("click", closeDeleteSubjectModals);
+  document.querySelector("#cancel-delete-scores-x")?.addEventListener("click", closeDeleteSubjectModals);
+  document.querySelector("#confirm-delete-scores")?.addEventListener("click", () => deleteSubject({ deleteScores: true }));
 
   window.addEventListener("hashchange", () => {
     const catalogueId = new URLSearchParams(window.location.hash.slice(1)).get("catalogue");
