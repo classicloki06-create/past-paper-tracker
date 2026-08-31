@@ -14,15 +14,10 @@ const state = {
   attempts: [],
   currentCatalogueId: sessionStorage.getItem("currentCatalogueId") || "",
   selectedCatalogue: null,
-  selectedPaper: null
+  selectedPaper: null,
+  expandedYears: new Set(),
+  lastActiveYear: null
 };
-
-let charts = [];
-
-function destroyCharts() {
-  charts.forEach((chart) => chart.destroy());
-  charts = [];
-}
 
 function paperIdCounts(catalogues = state.catalogues) {
   return flattenPapers(catalogues).reduce((counts, paper) => {
@@ -55,16 +50,6 @@ function buildAnalytics(catalogue) {
   const recent = [...validAttempts].sort((a, b) => attemptMillis(b) - attemptMillis(a)).slice(0, 5);
   const completion = papers.length ? (completedPaperIds.size / papers.length) * 100 : 0;
 
-  const byPaperNumber = groupBy(validAttempts.map((attempt) => ({
-    ...attempt,
-    paperNumber: papers.find((paper) => paper.id === attempt.paperId)?.paper
-  })).filter((attempt) => attempt.paperNumber), (attempt) => attempt.paperNumber);
-
-  const paperAverages = Object.entries(byPaperNumber).map(([paperNumber, paperAttempts]) => ({
-    paperNumber,
-    average: average(paperAttempts.map((attempt) => attempt.percentage))
-  })).sort((a, b) => Number(a.paperNumber) - Number(b.paperNumber));
-
   const completedPapers = papers.map((paper) => {
     const paperAttempts = attemptsForPaper(validAttempts, paper.id);
     return {
@@ -87,17 +72,17 @@ function buildAnalytics(catalogue) {
     averageScore: average(percentages),
     best: percentages.length ? Math.max(...percentages) : 0,
     recentAverage: average(recent.map((attempt) => attempt.percentage)),
-    paperAverages,
     bestPaper: ranked[0] || null,
     weakestPaper: ranked[ranked.length - 1] || null
   };
 }
 
 function renderSubjectCards() {
-  destroyCharts();
   state.currentCatalogueId = "";
   state.selectedCatalogue = null;
   state.selectedPaper = null;
+  state.expandedYears = new Set();
+  state.lastActiveYear = null;
   sessionStorage.removeItem("currentCatalogueId");
   document.querySelector("#dashboard-title").textContent = "Choose a Subject";
   document.querySelector("#subject-selection").classList.remove("hidden");
@@ -136,6 +121,10 @@ function showSubject(catalogueId) {
     return;
   }
 
+  if (state.currentCatalogueId !== catalogue.id) {
+    state.expandedYears = new Set();
+    state.lastActiveYear = null;
+  }
   state.currentCatalogueId = catalogue.id;
   state.selectedCatalogue = catalogue;
   sessionStorage.setItem("currentCatalogueId", catalogue.id);
@@ -164,12 +153,10 @@ function renderSelectedSubject() {
 
   const analytics = buildAnalytics(catalogue);
   renderStats(analytics, catalogue);
-  renderCharts(analytics);
   renderChecklist(catalogue, analytics.attempts);
 }
 
 function showMissingSubject() {
-  destroyCharts();
   state.currentCatalogueId = "";
   state.selectedCatalogue = null;
   state.selectedPaper = null;
@@ -181,7 +168,6 @@ function showMissingSubject() {
   document.querySelector("#subject-heading").textContent = "Selected subject could not be found";
   document.querySelector("#stats-grid").innerHTML = "";
   document.querySelector("#insight-grid").innerHTML = "";
-  document.querySelector("#charts-grid").classList.add("hidden");
   document.querySelector("#dashboard-empty").classList.remove("hidden");
   document.querySelector("#dashboard-empty h2").textContent = "This subject is not available.";
   document.querySelector("#dashboard-empty p").textContent = "Go back to subjects or import the catalogue again.";
@@ -212,69 +198,6 @@ function renderStats(analytics, catalogue) {
   `;
 
   document.querySelector("#dashboard-empty").classList.toggle("hidden", analytics.totalAttempts > 0);
-  document.querySelector("#charts-grid").classList.toggle("hidden", analytics.totalAttempts === 0);
-}
-
-function renderCharts(analytics) {
-  destroyCharts();
-  const Chart = window.Chart;
-  if (!Chart || !analytics.totalAttempts) return;
-
-  const paperAverageContext = document.querySelector("#paper-average-chart");
-  const completionContext = document.querySelector("#completion-chart");
-
-  charts.push(new Chart(paperAverageContext, {
-    type: "bar",
-    data: {
-      labels: analytics.paperAverages.map((item) => `Paper ${item.paperNumber}`),
-      datasets: [{
-        label: "Average %",
-        data: analytics.paperAverages.map((item) => item.average),
-        backgroundColor: "#d56a3f"
-      }]
-    },
-    options: chartOptions({ max: 100 })
-  }));
-
-  charts.push(new Chart(completionContext, {
-    type: "doughnut",
-    data: {
-      labels: ["Completed", "Remaining"],
-      datasets: [{
-        data: [analytics.completedUnique, Math.max(analytics.totalPapers - analytics.completedUnique, 0)],
-        backgroundColor: ["#1b6b68", "#d9e2ec"]
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: {
-          position: "bottom"
-        }
-      }
-    }
-  }));
-}
-
-function chartOptions({ max }) {
-  return {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: {
-      y: {
-        beginAtZero: true,
-        max,
-        ticks: {
-          callback: (value) => `${value}%`
-        }
-      }
-    },
-    plugins: {
-      legend: {
-        display: false
-      }
-    }
-  };
 }
 
 function sessionRank(session) {
@@ -311,12 +234,18 @@ function renderChecklist(catalogue, subjectAttempts) {
 
   checklist.innerHTML = Object.entries(years)
     .sort(([a], [b]) => Number(b) - Number(a))
-    .map(([year, papers]) => `
-      <details class="year-section" ${Number(year) === newestYear ? "open" : ""}>
+    .map(([year, papers]) => {
+      const yearNumber = Number(year);
+      const shouldOpen = state.expandedYears.size
+        ? state.expandedYears.has(String(year))
+        : yearNumber === (state.lastActiveYear || newestYear);
+      return `
+      <details class="year-section" data-year="${year}" ${shouldOpen ? "open" : ""}>
         <summary>${year}</summary>
         ${renderSessionGroups(papers, subjectAttempts)}
       </details>
-    `).join("");
+    `;
+    }).join("");
 }
 
 function renderSessionGroups(papers, subjectAttempts) {
@@ -450,6 +379,7 @@ async function saveAttempt(event) {
     }].sort(compareAttempts);
     state.currentCatalogueId = catalogue.id;
     state.selectedCatalogue = catalogue;
+    state.lastActiveYear = paper.year;
     sessionStorage.setItem("currentCatalogueId", catalogue.id);
     document.querySelector("#completion-modal").close();
     renderSelectedSubject();
@@ -477,6 +407,12 @@ function wireEvents() {
     if (completeId) openCompletionModal(completeId);
     if (historyId) openHistoryModal(historyId);
   });
+  document.querySelector("#paper-checklist")?.addEventListener("toggle", (event) => {
+    const section = event.target.closest?.(".year-section");
+    if (!section?.dataset.year) return;
+    if (section.open) state.expandedYears.add(section.dataset.year);
+    else state.expandedYears.delete(section.dataset.year);
+  }, true);
 
   document.querySelector("#completion-form")?.addEventListener("submit", saveAttempt);
   document.querySelector("#cancel-completion")?.addEventListener("click", () => document.querySelector("#completion-modal")?.close());
