@@ -447,6 +447,10 @@ select:focus {
   margin-bottom: 24px;
 }
 
+.import-button {
+  white-space: nowrap;
+}
+
 .page-heading h1 {
   font-size: clamp(2rem, 5vw, 3.5rem);
   margin-bottom: 0;
@@ -520,6 +524,99 @@ select:focus {
   border: 1px solid var(--line);
   border-radius: 8px;
   margin-bottom: 16px;
+}
+
+.import-panel {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.import-panel h2 {
+  margin-bottom: 6px;
+}
+
+.import-panel p,
+.muted-text {
+  color: var(--muted);
+  margin-bottom: 0;
+}
+
+.imported-catalogues {
+  display: grid;
+  gap: 10px;
+}
+
+.imported-catalogue {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--page);
+}
+
+.imported-catalogue strong,
+.imported-catalogue span {
+  display: block;
+}
+
+.imported-catalogue span {
+  color: var(--muted);
+  font-size: 0.88rem;
+  margin-top: 3px;
+}
+
+.import-result {
+  padding: 12px;
+  border: 1px solid #f2c5c5;
+  border-radius: 8px;
+  background: #fff3f3;
+  color: var(--bad);
+  font-weight: 700;
+}
+
+.import-result.success {
+  border-color: #bce7cd;
+  background: #effaf3;
+  color: var(--good);
+}
+
+.import-result ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+.import-result dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(90px, 1fr));
+  gap: 10px;
+  margin: 12px 0 0;
+}
+
+.import-result dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.import-result dd {
+  margin: 3px 0 0;
+  color: var(--ink);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
 }
 
 .filter-panel label {
@@ -754,7 +851,8 @@ select:focus {
   .page-heading,
   .paper-card-header,
   .paper-actions,
-  .summary-strip {
+  .summary-strip,
+  .imported-catalogue {
     align-items: stretch;
     flex-direction: column;
   }
@@ -782,7 +880,8 @@ select:focus {
   .hero-grid,
   .stats-grid,
   .filter-panel,
-  .paper-meta {
+  .paper-meta,
+  .import-result dl {
     grid-template-columns: 1fr;
   }
 }
