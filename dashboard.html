@@ -23,22 +23,39 @@
       <section class="page-heading">
         <div>
           <p class="eyebrow">Your study command centre</p>
-          <h1>Dashboard</h1>
+          <h1 id="dashboard-title">Choose a Subject</h1>
         </div>
-        <a class="button button-primary" href="papers.html">Record a Paper</a>
+        <a class="button button-primary" href="papers.html">Import JSON</a>
       </section>
 
       <section id="dashboard-loading" class="loading-card">Loading your progress...</section>
       <section id="dashboard-error" class="empty-state hidden" role="alert"></section>
 
       <section id="dashboard-content" class="hidden">
+        <section id="subject-selection" class="subject-selection">
+          <div id="subject-grid" class="subject-grid"></div>
+          <section id="subjects-empty" class="empty-state hidden">
+            <h2>No subjects imported yet.</h2>
+            <p>Import a JSON catalogue to start tracking a subject.</p>
+            <a class="button button-primary" href="papers.html">Import JSON</a>
+          </section>
+        </section>
+
+        <section id="subject-view" class="hidden">
+          <div class="subject-toolbar">
+            <button id="back-to-subjects" class="button button-secondary" type="button">Back to Subjects</button>
+            <div>
+              <p class="eyebrow" id="subject-kicker"></p>
+              <h2 id="subject-heading"></h2>
+            </div>
+          </div>
+
         <div class="stats-grid" id="stats-grid"></div>
         <div class="insight-grid" id="insight-grid"></div>
 
         <section id="dashboard-empty" class="empty-state hidden">
-          <h2>No attempts yet</h2>
-          <p>Complete a paper from the browser to unlock trends, averages, and progress charts.</p>
-          <a class="button button-primary" href="papers.html">Browse Papers</a>
+          <h2>No attempts for this subject yet</h2>
+          <p>Click a paper in the checklist to record your first score.</p>
         </section>
 
         <section class="charts-grid" id="charts-grid">
@@ -55,8 +72,38 @@
             <canvas id="completion-chart" aria-label="Completion progress" role="img"></canvas>
           </article>
         </section>
+
+          <section id="paper-checklist" class="paper-checklist" aria-live="polite"></section>
+        </section>
       </section>
     </main>
+
+    <dialog id="completion-modal" class="modal">
+      <form id="completion-form" method="dialog" class="modal-card">
+        <button class="modal-close" value="cancel" aria-label="Close" type="button" id="cancel-completion-x">&times;</button>
+        <p class="eyebrow" id="modal-paper-meta"></p>
+        <h2 id="modal-title">How did you score?</h2>
+        <label for="score-input">Score</label>
+        <div class="score-entry">
+          <input id="score-input" name="score" type="number" min="0" step="1" inputmode="numeric" required>
+          <span id="maximum-mark-label">/ 0</span>
+        </div>
+        <p id="modal-message" class="form-message" role="status" aria-live="polite"></p>
+        <div class="modal-actions">
+          <button class="button button-secondary" type="button" id="cancel-completion">Cancel</button>
+          <button class="button button-primary" type="submit">Save Attempt</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="history-modal" class="modal">
+      <div class="modal-card">
+        <button class="modal-close" aria-label="Close" type="button" id="close-history">&times;</button>
+        <p class="eyebrow" id="history-meta"></p>
+        <h2>Attempt History</h2>
+        <div id="history-list" class="history-list"></div>
+      </div>
+    </dialog>
 
     <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
