@@ -90,6 +90,34 @@
       </div>
     </dialog>
 
+    <dialog id="delete-subject-modal" class="modal modal-wide">
+      <div class="modal-card">
+        <button class="modal-close" aria-label="Close" type="button" id="cancel-delete-subject-x">&times;</button>
+        <p class="eyebrow">Delete subject</p>
+        <h2 id="delete-subject-title">Delete subject?</h2>
+        <p id="delete-subject-message" class="muted-text"></p>
+        <p id="delete-subject-attempts" class="warning-text"></p>
+        <div class="modal-actions modal-actions-stacked">
+          <button class="button button-secondary" type="button" id="cancel-delete-subject">Cancel</button>
+          <button class="button button-secondary" type="button" id="delete-subject-keep-scores">Delete Subject & Keep Scores</button>
+          <button class="button button-danger" type="button" id="delete-subject-with-scores">Delete Subject & Scores</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="delete-scores-confirm-modal" class="modal">
+      <div class="modal-card">
+        <button class="modal-close" aria-label="Close" type="button" id="cancel-delete-scores-x">&times;</button>
+        <p class="eyebrow">Permanent deletion</p>
+        <h2 id="delete-scores-title">Delete saved scores?</h2>
+        <p id="delete-scores-message" class="warning-text"></p>
+        <div class="modal-actions">
+          <button class="button button-secondary" type="button" id="cancel-delete-scores">Cancel</button>
+          <button class="button button-danger" type="button" id="confirm-delete-scores">Permanently Delete Scores</button>
+        </div>
+      </div>
+    </dialog>
+
     <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
     <script type="module" src="js/dashboard.js"></script>
   </body>
