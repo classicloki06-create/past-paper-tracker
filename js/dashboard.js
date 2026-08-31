@@ -1,5 +1,5 @@
 import { average, formatPercent, groupBy, requireAuth, wireLogout } from "./app.js";
-import { attemptsForPaper, bestAttempt, flattenPapers, loadAttempts, loadCatalogue, attemptMillis } from "./papers.js";
+import { attemptsForPaper, bestAttempt, compareAttempts, flattenPapers, loadAttempts, loadCatalogue, attemptMillis } from "./papers.js";
 
 let charts = [];
 
@@ -9,7 +9,10 @@ function destroyCharts() {
 }
 
 function buildAnalytics(papers, attempts) {
-  const completedPaperIds = new Set(attempts.map((attempt) => attempt.paperId));
+  const availablePaperIds = new Set(papers.map((paper) => paper.id));
+  const completedPaperIds = new Set(attempts
+    .filter((attempt) => availablePaperIds.has(attempt.paperId))
+    .map((attempt) => attempt.paperId));
   const validAttempts = attempts.filter((attempt) => Number.isFinite(attempt.percentage));
   const percentages = validAttempts.map((attempt) => attempt.percentage);
   const recent = [...validAttempts].sort((a, b) => attemptMillis(b) - attemptMillis(a)).slice(0, 5);
@@ -49,7 +52,10 @@ function buildAnalytics(papers, attempts) {
     paperAverages,
     bestPaper: ranked[0] || null,
     weakestPaper: ranked[ranked.length - 1] || null,
-    improvement: [...validAttempts].sort((a, b) => attemptMillis(a) - attemptMillis(b))
+    improvement: [...validAttempts].sort(compareAttempts).map((attempt) => ({
+      ...attempt,
+      paper: papers.find((paper) => paper.id === attempt.paperId)
+    }))
   };
 }
 
@@ -96,14 +102,30 @@ function renderCharts(analytics) {
       labels: analytics.improvement.map((attempt) => new Date(attemptMillis(attempt)).toLocaleDateString()),
       datasets: [{
         label: "Score %",
-        data: analytics.improvement.map((attempt) => attempt.percentage),
+        data: analytics.improvement.map((attempt) => ({
+          x: new Date(attemptMillis(attempt)).toLocaleDateString(),
+          y: attempt.percentage,
+          attempt
+        })),
         borderColor: "#1b6b68",
         backgroundColor: "rgba(27, 107, 104, 0.16)",
         tension: 0.32,
         fill: true
       }]
     },
-    options: chartOptions({ max: 100 })
+    options: chartOptions({
+      max: 100,
+      tooltipLabel: (context) => {
+        const attempt = context.raw.attempt;
+        const paperName = attempt.paper?.name || attempt.paperId;
+        const date = new Date(attemptMillis(attempt)).toLocaleDateString();
+        return [
+          paperName,
+          `${attempt.score}/${attempt.maximumMark} · ${formatPercent(attempt.percentage)}`,
+          date
+        ];
+      }
+    })
   }));
 
   charts.push(new Chart(paperAverageContext, {
@@ -139,7 +161,7 @@ function renderCharts(analytics) {
   }));
 }
 
-function chartOptions({ max }) {
+function chartOptions({ max, tooltipLabel = null }) {
   return {
     responsive: true,
     maintainAspectRatio: false,
@@ -155,6 +177,11 @@ function chartOptions({ max }) {
     plugins: {
       legend: {
         display: false
+      },
+      tooltip: {
+        callbacks: tooltipLabel ? {
+          label: tooltipLabel
+        } : {}
       }
     }
   };
@@ -163,7 +190,7 @@ function chartOptions({ max }) {
 async function initDashboard(user) {
   wireLogout();
   try {
-    const catalogues = await loadCatalogue();
+    const catalogues = await loadCatalogue(user.uid);
     const papers = flattenPapers(catalogues);
     const attempts = await loadAttempts(user.uid);
     const analytics = buildAnalytics(papers, attempts);
