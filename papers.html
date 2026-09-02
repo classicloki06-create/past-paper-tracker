@@ -22,20 +22,10 @@
     <main class="app-shell">
       <section class="page-heading">
         <div>
-          <p class="eyebrow">CIE paper catalogue</p>
+          <p class="eyebrow">Built-in paper catalogue</p>
           <h1>Past Papers</h1>
         </div>
-        <label class="button button-primary import-button" for="json-import-input">Import JSON</label>
-        <input id="json-import-input" class="visually-hidden" type="file" accept="application/json,.json">
-      </section>
-
-      <section class="import-panel" aria-labelledby="import-title">
-        <div>
-          <h2 id="import-title">Imported Catalogues</h2>
-          <p>Import a subject or qualification JSON file, then choose it from the catalogue selector below.</p>
-        </div>
-        <div id="import-result" class="import-result hidden" role="status" aria-live="polite"></div>
-        <div id="imported-catalogues" class="imported-catalogues"></div>
+        <a class="button button-primary" href="dashboard.html">Choose Subjects</a>
       </section>
 
       <section class="filter-panel" aria-label="Paper filters">
@@ -92,19 +82,6 @@
         <h2>Attempt History</h2>
         <div id="history-list" class="history-list"></div>
       </div>
-    </dialog>
-
-    <dialog id="replace-catalogue-modal" class="modal">
-      <form id="replace-catalogue-form" method="dialog" class="modal-card">
-        <button class="modal-close" aria-label="Close" type="button" id="cancel-replace-x">&times;</button>
-        <p class="eyebrow">Duplicate catalogue</p>
-        <h2>Replace existing catalogue?</h2>
-        <p id="replace-catalogue-message" class="muted-text"></p>
-        <div class="modal-actions">
-          <button class="button button-secondary" type="button" id="cancel-replace">Cancel</button>
-          <button class="button button-primary" type="submit">Replace Catalogue</button>
-        </div>
-      </form>
     </dialog>
 
     <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
