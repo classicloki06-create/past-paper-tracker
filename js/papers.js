@@ -16,6 +16,7 @@ const state = {
   catalogues: [],
   papers: [],
   attempts: [],
+  notes: [],
   selectedPaper: null,
   selectedSubjectIds: []
 };
@@ -85,6 +86,15 @@ export async function loadAttempts(uid) {
     .sort(compareAttempts);
 }
 
+async function loadNotes(uid) {
+  const snapshot = await getDocs(collection(db, "users", uid, "notes"));
+  return snapshot.docs.map((noteDoc) => ({ id: noteDoc.id, ...noteDoc.data() }));
+}
+
+function notesForPaper(paper) {
+  return state.notes.filter((note) => note.catalogueId === paper.catalogueId && note.paperId === paper.id);
+}
+
 export function attemptsForPaper(attempts, paperId) {
   return attempts
     .filter((attempt) => attempt.paperId === paperId)
@@ -144,6 +154,10 @@ function componentLabel(paper) {
   return paper.board === "Edexcel" ? "Unit" : "Paper";
 }
 
+function noteUrl(paper) {
+  return `notes.html?catalogueId=${encodeURIComponent(paper.catalogueId)}&paperId=${encodeURIComponent(paper.id)}`;
+}
+
 function filteredPapers() {
   const filters = {
     catalogue: document.querySelector("#filter-catalogue")?.value || "all",
@@ -184,6 +198,7 @@ function renderPapers() {
   papers.forEach((paper) => {
     const paperAttempts = attemptsForPaper(state.attempts, paper.id);
     const best = bestAttempt(paperAttempts);
+    const notes = notesForPaper(paper);
     const card = document.createElement("article");
     card.className = "paper-card";
     card.innerHTML = `
@@ -205,11 +220,13 @@ function renderPapers() {
       <div class="paper-meta">
         <div><span>Best score</span><strong>${best ? `${best.score}/${best.maximumMark} (${formatPercent(best.percentage)})` : "None"}</strong></div>
         <div><span>Attempts</span><strong>${paperAttempts.length}</strong></div>
+        <div><span>Notes</span><strong>${notes.length ? `${notes.length} note${notes.length === 1 ? "" : "s"}` : "None"}</strong></div>
         <div><span>Latest</span><strong>${paperAttempts.length ? formatDate(paperAttempts[paperAttempts.length - 1].completedAt) : "Not attempted"}</strong></div>
       </div>
       <div class="file-links">${renderFileLinks(paper.files)}</div>
       <div class="paper-actions">
         <button class="button button-primary" data-complete="${paper.id}" type="button">Complete</button>
+        <a class="button button-secondary" href="${noteUrl(paper)}">Notes</a>
         <button class="button button-secondary" data-history="${paper.id}" type="button" ${paperAttempts.length ? "" : "disabled"}>View History</button>
       </div>
     `;
@@ -336,6 +353,7 @@ async function initPapersPage(user) {
     state.catalogues = await loadCatalogue(user.uid);
     state.papers = flattenPapers(state.catalogues);
     state.attempts = await loadAttempts(user.uid);
+    state.notes = await loadNotes(user.uid);
     populateFilters();
     renderPapers();
     document.querySelector("#papers-loading")?.classList.add("hidden");
