@@ -31,9 +31,12 @@ const state = {
   currentCatalogueId: sessionStorage.getItem("currentCatalogueId") || "",
   selectedCatalogue: null,
   selectedPaper: null,
-  expandedYears: new Set(),
-  lastActiveYear: null,
   pendingDeleteCatalogue: null,
+  trackerNav: {
+    year: null,
+    session: "",
+    variant: ""
+  },
   selector: {
     board: "",
     qualification: "",
@@ -243,8 +246,7 @@ function renderSubjectCards() {
   state.currentCatalogueId = "";
   state.selectedCatalogue = null;
   state.selectedPaper = null;
-  state.expandedYears = new Set();
-  state.lastActiveYear = null;
+  state.trackerNav = { year: null, session: "", variant: "" };
   sessionStorage.removeItem("currentCatalogueId");
   document.querySelector("#dashboard-title").textContent = "Choose a Subject";
   document.querySelector("#subject-selection").classList.remove("hidden");
@@ -286,10 +288,7 @@ function showSubject(catalogueId) {
     return;
   }
 
-  if (state.currentCatalogueId !== catalogue.id) {
-    state.expandedYears = new Set();
-    state.lastActiveYear = null;
-  }
+  if (state.currentCatalogueId !== catalogue.id) state.trackerNav = { year: null, session: "", variant: "" };
   state.currentCatalogueId = catalogue.id;
   state.selectedCatalogue = catalogue;
   sessionStorage.setItem("currentCatalogueId", catalogue.id);
@@ -457,6 +456,75 @@ function componentLabel(paper) {
   return paper.board === "Edexcel" ? `Unit ${paper.paper}` : `Paper ${paper.paper}`;
 }
 
+function itemNoun(catalogue, count = 2) {
+  const noun = catalogue.data.board === "Edexcel" ? "unit" : "paper";
+  return `${noun}${count === 1 ? "" : "s"}`;
+}
+
+function variantLabel(catalogue, variant) {
+  return catalogue.data.board === "Edexcel" ? String(variant) : `Variant ${variant}`;
+}
+
+function seriesHeading(catalogue) {
+  return catalogue.data.board === "Edexcel" ? "Choose Examination Series" : "Choose Examination Series";
+}
+
+function variantHeading(catalogue) {
+  return catalogue.data.board === "Edexcel" ? "Choose Unit Group" : "Choose Variant";
+}
+
+function uniqueSortedPapers(papers, key, sorter = null) {
+  const values = [...new Set(papers.map((paper) => paper[key]).filter((value) => value !== undefined && value !== null && value !== ""))];
+  return sorter ? values.sort(sorter) : values.sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
+}
+
+function navFilteredPapers(catalogue) {
+  return sortPapersForChecklist(catalogue.papers).filter((paper) => {
+    return (!state.trackerNav.year || Number(paper.year) === Number(state.trackerNav.year))
+      && (!state.trackerNav.session || paper.session === state.trackerNav.session)
+      && (!state.trackerNav.variant || String(paper.variant) === String(state.trackerNav.variant));
+  });
+}
+
+function renderBreadcrumbs(catalogue) {
+  const crumbs = [
+    { label: "Subjects", action: "subjects" },
+    { label: catalogue.data.subject, action: "subject" }
+  ];
+  if (catalogue.data.qualification) crumbs.push({ label: catalogue.data.qualification, action: "subject" });
+  if (state.trackerNav.year) crumbs.push({ label: state.trackerNav.year, action: "year" });
+  if (state.trackerNav.session) crumbs.push({ label: state.trackerNav.session, action: "session" });
+  if (state.trackerNav.variant) crumbs.push({ label: variantLabel(catalogue, state.trackerNav.variant), action: "variant" });
+
+  return `
+    <nav class="tracker-breadcrumbs" aria-label="Paper browser location">
+      ${crumbs.map((crumb, index) => index === crumbs.length - 1
+        ? `<span>${crumb.label}</span>`
+        : `<button type="button" data-nav-back="${crumb.action}">${crumb.label}</button>`
+      ).join("<b>/</b>")}
+    </nav>
+  `;
+}
+
+function renderChoiceGrid({ title, subtitle, choices }) {
+  return `
+    <section class="tracker-step">
+      <div>
+        <p class="eyebrow">${subtitle}</p>
+        <h3>${title}</h3>
+      </div>
+      <div class="tracker-choice-grid">
+        ${choices.map((choice) => `
+          <button class="tracker-choice" type="button" data-nav-${choice.key}="${choice.value}">
+            <strong>${choice.label}</strong>
+            ${choice.meta ? `<span>${choice.meta}</span>` : ""}
+          </button>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
 function renderChecklist(catalogue, subjectAttempts) {
   const checklist = document.querySelector("#paper-checklist");
   if (!checklist) return;
@@ -466,49 +534,59 @@ function renderChecklist(catalogue, subjectAttempts) {
     return;
   }
 
-  const sortedPapers = sortPapersForChecklist(catalogue.papers);
-  const years = groupBy(sortedPapers, (paper) => paper.year);
-  const newestYear = Math.max(...Object.keys(years).map(Number));
+  const yearChoices = uniqueSortedPapers(catalogue.papers, "year", (a, b) => Number(b) - Number(a));
+  const yearPapers = navFilteredPapers(catalogue);
+  let content = "";
 
-  checklist.innerHTML = Object.entries(years)
-    .sort(([a], [b]) => Number(b) - Number(a))
-    .map(([year, papers]) => {
-      const yearNumber = Number(year);
-      const shouldOpen = state.expandedYears.size
-        ? state.expandedYears.has(String(year))
-        : yearNumber === (state.lastActiveYear || newestYear);
-      return `
-      <details class="year-section" data-year="${year}" ${shouldOpen ? "open" : ""}>
-        <summary>${year}</summary>
-        ${renderSessionGroups(papers, subjectAttempts)}
-      </details>
+  if (!state.trackerNav.year) {
+    content = renderChoiceGrid({
+      title: "Choose Year",
+      subtitle: "Step 1",
+      choices: yearChoices.map((year) => {
+        const count = catalogue.papers.filter((paper) => Number(paper.year) === Number(year)).length;
+        return { key: "year", value: year, label: year, meta: `${count} ${itemNoun(catalogue, count)}` };
+      })
+    });
+  } else if (!state.trackerNav.session) {
+    const papersForYear = catalogue.papers.filter((paper) => Number(paper.year) === Number(state.trackerNav.year));
+    const sessions = uniqueSortedPapers(papersForYear, "session", (a, b) => sessionRank(a) - sessionRank(b) || String(a).localeCompare(String(b)));
+    content = renderChoiceGrid({
+      title: seriesHeading(catalogue),
+      subtitle: "Step 2",
+      choices: sessions.map((session) => {
+        const count = papersForYear.filter((paper) => paper.session === session).length;
+        return { key: "session", value: session, label: session, meta: `${count} ${itemNoun(catalogue, count)}` };
+      })
+    });
+  } else if (!state.trackerNav.variant) {
+    const papersForSeries = catalogue.papers.filter((paper) => Number(paper.year) === Number(state.trackerNav.year) && paper.session === state.trackerNav.session);
+    const variants = uniqueSortedPapers(papersForSeries, "variant");
+    content = renderChoiceGrid({
+      title: variantHeading(catalogue),
+      subtitle: "Step 3",
+      choices: variants.map((variant) => {
+        const count = papersForSeries.filter((paper) => String(paper.variant) === String(variant)).length;
+        return { key: "variant", value: variant, label: variantLabel(catalogue, variant), meta: `${count} ${itemNoun(catalogue, count)}` };
+      })
+    });
+  } else {
+    content = `
+      <section class="tracker-step">
+        <div>
+          <p class="eyebrow">Step 4</p>
+          <h3>${state.trackerNav.year} · ${state.trackerNav.session} · ${variantLabel(catalogue, state.trackerNav.variant)}</h3>
+        </div>
+        <div class="tracker-paper-list">
+          ${yearPapers
+            .sort((a, b) => Number(a.paper) - Number(b.paper))
+            .map((paper) => renderChecklistPaper(paper, subjectAttempts))
+            .join("")}
+        </div>
+      </section>
     `;
-    }).join("");
-}
+  }
 
-function renderSessionGroups(papers, subjectAttempts) {
-  const sessions = groupBy(papers, (paper) => paper.session);
-  return Object.entries(sessions)
-    .sort(([a], [b]) => sessionRank(a) - sessionRank(b) || a.localeCompare(b))
-    .map(([session, sessionPapers]) => {
-      const variants = groupBy(sessionPapers, (paper) => paper.variant);
-      return `
-        <section class="session-group">
-          <h3>${session}</h3>
-          ${Object.entries(variants)
-            .sort(([a], [b]) => String(a).localeCompare(String(b), undefined, { numeric: true }))
-            .map(([variant, variantPapers]) => `
-              <div class="variant-group">
-                <h4>Variant ${variant}</h4>
-                ${variantPapers
-                  .sort((a, b) => Number(a.paper) - Number(b.paper))
-                  .map((paper) => renderChecklistPaper(paper, subjectAttempts))
-                  .join("")}
-              </div>
-            `).join("")}
-        </section>
-      `;
-    }).join("");
+  checklist.innerHTML = `${renderBreadcrumbs(catalogue)}${content}`;
 }
 
 function renderChecklistPaper(paper, subjectAttempts) {
@@ -528,6 +606,7 @@ function renderChecklistPaper(paper, subjectAttempts) {
         <strong>${attempted ? `${best.score}/${best.maximumMark}` : `${paper.maximumMark} marks`}</strong>
         <span>${attempted ? `${formatPercent(best.percentage)} · ${paperAttempts.length} attempt${paperAttempts.length === 1 ? "" : "s"}` : "Not attempted"}</span>
       </div>
+      <button class="button button-primary" data-complete="${paper.id}" type="button">Open</button>
       ${attempted ? `<button class="button button-secondary" data-history="${paper.id}" type="button">History</button>` : ""}
     </article>
   `;
@@ -617,7 +696,11 @@ async function saveAttempt(event) {
     }].sort(compareAttempts);
     state.currentCatalogueId = catalogue.id;
     state.selectedCatalogue = catalogue;
-    state.lastActiveYear = paper.year;
+    state.trackerNav = {
+      year: paper.year,
+      session: paper.session,
+      variant: String(paper.variant)
+    };
     sessionStorage.setItem("currentCatalogueId", catalogue.id);
     document.querySelector("#completion-modal").close();
     renderSelectedSubject();
@@ -671,17 +754,46 @@ function wireEvents() {
   });
 
   document.querySelector("#paper-checklist")?.addEventListener("click", (event) => {
+    const navBack = event.target.closest("[data-nav-back]")?.dataset.navBack;
+    if (navBack) {
+      if (navBack === "subjects") {
+        history.replaceState(null, "", window.location.pathname);
+        renderSubjectCards();
+        return;
+      }
+      if (navBack === "subject") state.trackerNav = { year: null, session: "", variant: "" };
+      if (navBack === "year") state.trackerNav = { year: state.trackerNav.year, session: "", variant: "" };
+      if (navBack === "session") state.trackerNav = { year: state.trackerNav.year, session: state.trackerNav.session, variant: "" };
+      renderSelectedSubject();
+      return;
+    }
+
+    const year = event.target.closest("[data-nav-year]")?.dataset.navYear;
+    if (year) {
+      state.trackerNav = { year: Number(year), session: "", variant: "" };
+      renderSelectedSubject();
+      return;
+    }
+
+    const session = event.target.closest("[data-nav-session]")?.dataset.navSession;
+    if (session) {
+      state.trackerNav = { year: state.trackerNav.year, session, variant: "" };
+      renderSelectedSubject();
+      return;
+    }
+
+    const variant = event.target.closest("[data-nav-variant]")?.dataset.navVariant;
+    if (variant) {
+      state.trackerNav = { year: state.trackerNav.year, session: state.trackerNav.session, variant };
+      renderSelectedSubject();
+      return;
+    }
+
     const completeId = event.target.closest("[data-complete]")?.dataset.complete;
     const historyId = event.target.closest("[data-history]")?.dataset.history;
     if (completeId) openCompletionModal(completeId);
     if (historyId) openHistoryModal(historyId);
   });
-  document.querySelector("#paper-checklist")?.addEventListener("toggle", (event) => {
-    const section = event.target.closest?.(".year-section");
-    if (!section?.dataset.year) return;
-    if (section.open) state.expandedYears.add(section.dataset.year);
-    else state.expandedYears.delete(section.dataset.year);
-  }, true);
 
   document.querySelector("#completion-form")?.addEventListener("submit", saveAttempt);
   document.querySelector("#cancel-completion")?.addEventListener("click", () => document.querySelector("#completion-modal")?.close());
