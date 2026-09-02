@@ -7,19 +7,39 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { db } from "./firebase.js";
 import { average, formatDate, formatPercent, groupBy, requireAuth, showToast, wireLogout } from "./app.js";
-import { attemptsForPaper, bestAttempt, compareAttempts, flattenPapers, loadAttempts, loadCatalogue, attemptMillis } from "./papers.js";
+import {
+  attemptsForPaper,
+  bestAttempt,
+  compareAttempts,
+  flattenPapers,
+  loadAllBuiltInCatalogues,
+  loadAttempts,
+  loadCatalogue,
+  loadSelectedSubjectIds,
+  saveSelectedSubjectIds,
+  attemptMillis
+} from "./papers.js";
+import { catalogueLabel } from "../data/catalogues.js";
 
 const state = {
   user: null,
+  allCatalogues: [],
   catalogues: [],
   subjects: [],
   attempts: [],
+  selectedSubjectIds: [],
   currentCatalogueId: sessionStorage.getItem("currentCatalogueId") || "",
   selectedCatalogue: null,
   selectedPaper: null,
   expandedYears: new Set(),
   lastActiveYear: null,
-  pendingDeleteCatalogue: null
+  pendingDeleteCatalogue: null,
+  selector: {
+    board: "",
+    qualification: "",
+    subject: "",
+    route: ""
+  }
 };
 
 function paperIdCounts(catalogues = state.catalogues) {
@@ -80,6 +100,145 @@ function buildAnalytics(catalogue) {
   };
 }
 
+function resetSelector() {
+  state.selector = { board: "", qualification: "", subject: "", route: "" };
+}
+
+function selectorStep() {
+  if (!state.selector.board) return "board";
+  if (!state.selector.qualification) return "qualification";
+  if (!state.selector.subject) return "subject";
+  if (routeChoices().length && !state.selector.route) return "route";
+  return "confirm";
+}
+
+function selectorCandidates() {
+  return state.allCatalogues.filter((catalogue) => {
+    return (!state.selector.board || catalogue.data.board === state.selector.board)
+      && (!state.selector.qualification || catalogue.data.qualification === state.selector.qualification)
+      && (!state.selector.subject || catalogue.data.subject === state.selector.subject);
+  });
+}
+
+function uniqueSorted(values) {
+  return [...new Set(values.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b)));
+}
+
+function routeChoices() {
+  return uniqueSorted(selectorCandidates().map((catalogue) => catalogue.data.route));
+}
+
+function selectedCatalogueChoice() {
+  const candidates = selectorCandidates();
+  const routes = routeChoices();
+  return candidates.find((catalogue) => {
+    if (routes.length) return catalogue.data.route === state.selector.route;
+    return !catalogue.data.route;
+  }) || null;
+}
+
+function renderSubjectSelector() {
+  const step = selectorStep();
+  const body = document.querySelector("#subject-selector-body");
+  const addButton = document.querySelector("#add-selected-subject");
+  if (!body || !addButton) return;
+
+  const stepLabels = ["Board", "Level", "Subject", "Route"];
+  document.querySelector("#selector-steps").innerHTML = stepLabels.map((label, index) => {
+    const active = (step === "board" && index === 0)
+      || (step === "qualification" && index === 1)
+      || (step === "subject" && index === 2)
+      || (step === "route" && index === 3)
+      || (step === "confirm" && index === stepLabels.length - 1);
+    const completed = [
+      state.selector.board,
+      state.selector.qualification,
+      state.selector.subject,
+      !routeChoices().length || state.selector.route
+    ][index];
+    return `<span class="${active ? "active" : ""} ${completed ? "done" : ""}">${index + 1}. ${label}</span>`;
+  }).join("");
+
+  const optionGroups = {
+    board: {
+      title: "Choose your exam board",
+      values: ["CIE", "Edexcel"].filter((board) => state.allCatalogues.some((catalogue) => catalogue.data.board === board)),
+      key: "board"
+    },
+    qualification: {
+      title: "Choose your level",
+      values: uniqueSorted(selectorCandidates().map((catalogue) => catalogue.data.qualification)),
+      key: "qualification"
+    },
+    subject: {
+      title: "Choose your subject",
+      values: uniqueSorted(selectorCandidates().map((catalogue) => catalogue.data.subject)),
+      key: "subject"
+    },
+    route: {
+      title: "Choose your route",
+      values: routeChoices(),
+      key: "route"
+    }
+  };
+
+  if (step === "confirm") {
+    const catalogue = selectedCatalogueChoice();
+    body.innerHTML = catalogue ? `
+      <div class="selector-confirm">
+        <span class="eyebrow">Ready to add</span>
+        <strong>${catalogueLabel(catalogue)}</strong>
+        <span>${catalogue.data.board} · ${catalogue.data.syllabusCode || "IAL"} · ${catalogue.papers.length} papers</span>
+      </div>
+    ` : `<p class="muted-text">Choose a valid catalogue to continue.</p>`;
+    addButton.disabled = !catalogue;
+    return;
+  }
+
+  const group = optionGroups[step];
+  addButton.disabled = true;
+  body.innerHTML = `
+    <h3>${group.title}</h3>
+    <div class="selector-options">
+      ${group.values.map((value) => `
+        <button class="selector-option" type="button" data-selector-key="${group.key}" data-selector-value="${value}">
+          <strong>${value}</strong>
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function openSubjectSelector() {
+  resetSelector();
+  renderSubjectSelector();
+  document.querySelector("#subject-selector-modal")?.showModal();
+}
+
+async function addSelectedSubject() {
+  const catalogue = selectedCatalogueChoice();
+  if (!catalogue) return;
+
+  if (state.selectedSubjectIds.includes(catalogue.id)) {
+    document.querySelector("#subject-selector-modal")?.close();
+    showToast("This subject is already in your tracker.");
+    showSubject(catalogue.id);
+    return;
+  }
+
+  try {
+    state.selectedSubjectIds = await saveSelectedSubjectIds(state.user.uid, [...state.selectedSubjectIds, catalogue.id]);
+    state.catalogues = loadAllBuiltInCatalogues().filter((item) => state.selectedSubjectIds.includes(item.id));
+    state.subjects = state.catalogues;
+    document.querySelector("#subject-selector-modal")?.close();
+    renderSubjectCards();
+    showToast("Subject added to your tracker.");
+  } catch (error) {
+    console.error("Failed to add subject:", error);
+    showToast("Could not add this subject. Please try again.", "error");
+  }
+}
+
 function renderSubjectCards() {
   state.currentCatalogueId = "";
   state.selectedCatalogue = null;
@@ -109,7 +268,7 @@ function renderSubjectCards() {
         <button class="subject-card-main" data-catalogue-id="${catalogue.id}" type="button">
           <span class="eyebrow">${catalogue.data.board}</span>
           <strong>${catalogue.data.subject}</strong>
-          <span>${catalogue.data.qualification} · ${catalogue.data.syllabusCode}</span>
+          <span>${catalogue.data.qualification} · ${catalogue.data.syllabusCode || "IAL"}${catalogue.data.route ? ` · ${catalogue.data.route}` : ""}</span>
           <span>${analytics.completedUnique} / ${analytics.totalPapers} completed</span>
           <div class="progress-bar" aria-hidden="true"><span style="width: ${Math.min(analytics.completion, 100)}%"></span></div>
           <b>${formatPercent(analytics.completion)}</b>
@@ -154,7 +313,7 @@ function renderSelectedSubject() {
   document.querySelector("#dashboard-title").textContent = catalogue.data.subject;
   document.querySelector("#subject-selection").classList.add("hidden");
   document.querySelector("#subject-view").classList.remove("hidden");
-  document.querySelector("#subject-kicker").textContent = `${catalogue.data.board} ${catalogue.data.qualification} · ${catalogue.data.syllabusCode}`;
+  document.querySelector("#subject-kicker").textContent = `${catalogue.data.board} ${catalogue.data.qualification} · ${catalogue.data.syllabusCode || "IAL"}${catalogue.data.route ? ` · ${catalogue.data.route}` : ""}`;
   document.querySelector("#subject-heading").textContent = `${catalogue.data.subject} Paper Checklist`;
 
   const analytics = buildAnalytics(catalogue);
@@ -176,7 +335,7 @@ function showMissingSubject() {
   document.querySelector("#insight-grid").innerHTML = "";
   document.querySelector("#dashboard-empty").classList.remove("hidden");
   document.querySelector("#dashboard-empty h2").textContent = "This subject is not available.";
-  document.querySelector("#dashboard-empty p").textContent = "Go back to subjects or import the catalogue again.";
+  document.querySelector("#dashboard-empty p").textContent = "Go back to subjects and add it to your tracker again.";
   document.querySelector("#paper-checklist").innerHTML = "";
 }
 
@@ -217,7 +376,7 @@ function openDeleteSubjectModal(catalogueId) {
   const count = subjectAttemptCount(catalogue);
   state.pendingDeleteCatalogue = catalogue;
   document.querySelector("#delete-subject-title").textContent = `Delete ${catalogue.data.subject} ${catalogue.data.qualification}?`;
-  document.querySelector("#delete-subject-message").textContent = `This will remove the imported ${catalogue.data.subject} catalogue from your subject list.`;
+  document.querySelector("#delete-subject-message").textContent = `This will remove ${catalogue.data.subject} from your subject list. The built-in catalogue will remain available to add again later.`;
   document.querySelector("#delete-subject-attempts").textContent = count
     ? `You have ${count} saved attempt${count === 1 ? "" : "s"} for this subject.`
     : "You do not have saved attempts for this subject.";
@@ -243,10 +402,11 @@ async function deleteSubject({ deleteScores }) {
       await deleteDoc(doc(db, "users", state.user.uid, "attempts", attempt.id));
     }
 
-    await deleteDoc(doc(db, "users", state.user.uid, "catalogues", catalogue.id));
+    state.selectedSubjectIds = state.selectedSubjectIds.filter((id) => id !== catalogue.id);
+    await saveSelectedSubjectIds(state.user.uid, state.selectedSubjectIds);
 
-    state.catalogues = state.catalogues.filter((item) => item.id !== catalogue.id);
-    state.subjects = state.subjects.filter((item) => item.id !== catalogue.id);
+    state.catalogues = loadAllBuiltInCatalogues().filter((item) => state.selectedSubjectIds.includes(item.id));
+    state.subjects = state.catalogues;
     state.attempts = deleteScores
       ? state.attempts.filter((attempt) => !(attempt.catalogueId === catalogue.id))
       : state.attempts;
@@ -257,7 +417,7 @@ async function deleteSubject({ deleteScores }) {
 
     closeDeleteSubjectModals();
     renderSubjectCards();
-    showToast(deleteScores ? "Subject and linked scores deleted." : "Subject deleted. Scores were kept.");
+    showToast(deleteScores ? "Subject and linked scores deleted." : "Subject removed. Scores were kept.");
   } catch (error) {
     console.error("Failed to delete subject:", error);
     showToast("Could not delete subject. Please try again.", "error");
@@ -293,12 +453,16 @@ function sortPapersForChecklist(papers) {
   });
 }
 
+function componentLabel(paper) {
+  return paper.board === "Edexcel" ? `Unit ${paper.paper}` : `Paper ${paper.paper}`;
+}
+
 function renderChecklist(catalogue, subjectAttempts) {
   const checklist = document.querySelector("#paper-checklist");
   if (!checklist) return;
 
   if (!catalogue?.papers?.length) {
-    checklist.innerHTML = `<section class="empty-state"><h2>No papers in this catalogue</h2><p>Import a catalogue that includes a papers array.</p></section>`;
+    checklist.innerHTML = `<section class="empty-state"><h2>No papers in this subject yet</h2><p>This built-in subject does not currently include paper data.</p></section>`;
     return;
   }
 
@@ -356,7 +520,7 @@ function renderChecklistPaper(paper, subjectAttempts) {
       <button class="checklist-paper-main" data-complete="${paper.id}" type="button">
         <span class="checkmark" aria-hidden="true">${attempted ? "☑" : "☐"}</span>
         <span>
-          <strong>Paper ${paper.paper}</strong>
+          <strong>${componentLabel(paper)}</strong>
           <em>${paper.name}</em>
         </span>
       </button>
@@ -378,8 +542,8 @@ function openCompletionModal(paperId) {
   }
 
   state.selectedPaper = paper;
-  document.querySelector("#modal-paper-meta").textContent = `${paper.year} ${paper.session} Variant ${paper.variant} · Paper ${paper.paper}`;
-  document.querySelector("#modal-title").textContent = `Paper ${paper.paper}`;
+  document.querySelector("#modal-paper-meta").textContent = `${paper.year} ${paper.session} Variant ${paper.variant} · ${componentLabel(paper)}`;
+  document.querySelector("#modal-title").textContent = componentLabel(paper);
   document.querySelector("#maximum-mark-label").textContent = `/ ${paper.maximumMark}`;
   const scoreInput = document.querySelector("#score-input");
   scoreInput.value = "";
@@ -476,6 +640,31 @@ function wireEvents() {
     if (catalogueId) showSubject(catalogueId);
   });
 
+  document.querySelector("#select-subject-button")?.addEventListener("click", openSubjectSelector);
+  document.querySelector("#select-subject-empty")?.addEventListener("click", openSubjectSelector);
+  document.querySelector("#cancel-subject-selector")?.addEventListener("click", () => document.querySelector("#subject-selector-modal")?.close());
+  document.querySelector("#cancel-subject-selector-x")?.addEventListener("click", () => document.querySelector("#subject-selector-modal")?.close());
+  document.querySelector("#add-selected-subject")?.addEventListener("click", addSelectedSubject);
+  document.querySelector("#subject-selector-body")?.addEventListener("click", (event) => {
+    const option = event.target.closest("[data-selector-key]");
+    if (!option) return;
+    const { selectorKey, selectorValue } = option.dataset;
+    state.selector[selectorKey] = selectorValue;
+    if (selectorKey === "board") {
+      state.selector.qualification = "";
+      state.selector.subject = "";
+      state.selector.route = "";
+    }
+    if (selectorKey === "qualification") {
+      state.selector.subject = "";
+      state.selector.route = "";
+    }
+    if (selectorKey === "subject") {
+      state.selector.route = "";
+    }
+    renderSubjectSelector();
+  });
+
   document.querySelector("#back-to-subjects")?.addEventListener("click", () => {
     history.replaceState(null, "", window.location.pathname);
     renderSubjectCards();
@@ -519,8 +708,10 @@ async function initDashboard(user) {
   wireEvents();
 
   try {
+    state.allCatalogues = loadAllBuiltInCatalogues();
+    state.selectedSubjectIds = await loadSelectedSubjectIds(user.uid);
     state.catalogues = await loadCatalogue(user.uid);
-    state.subjects = state.catalogues.filter((catalogue) => catalogue.source === "imported");
+    state.subjects = state.catalogues;
     state.attempts = await loadAttempts(user.uid);
 
     document.querySelector("#dashboard-loading")?.classList.add("hidden");
