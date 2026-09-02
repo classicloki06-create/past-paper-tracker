@@ -898,6 +898,7 @@ select:focus {
 
 .checklist-paper-main strong,
 .checklist-paper-main em,
+.checklist-paper-main small,
 .checklist-score strong,
 .checklist-score span {
   display: block;
@@ -908,6 +909,13 @@ select:focus {
   font-style: normal;
   font-size: 0.9rem;
   margin-top: 3px;
+}
+
+.checklist-paper-main small {
+  color: var(--primary);
+  font-size: 0.82rem;
+  font-weight: 900;
+  margin-top: 5px;
 }
 
 .checklist-score {
@@ -923,6 +931,171 @@ select:focus {
 .paper-card {
   display: grid;
   gap: 16px;
+}
+
+.notes-shell {
+  width: min(1280px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 28px 0 64px;
+}
+
+.notes-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: start;
+  margin-bottom: 18px;
+}
+
+.notes-header h1 {
+  font-size: clamp(2rem, 5vw, 3.8rem);
+  margin-bottom: 10px;
+}
+
+.notes-paper-meta {
+  color: var(--muted);
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+
+.notes-toolbar {
+  position: sticky;
+  top: 73px;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px;
+  margin-bottom: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(23, 32, 51, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.notes-toolbar label,
+.save-status {
+  color: var(--muted);
+  font-weight: 900;
+  font-size: 0.9rem;
+}
+
+.save-status {
+  margin-left: auto;
+  color: var(--good);
+}
+
+.save-status.error {
+  color: var(--bad);
+}
+
+.tool-button {
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  padding: 7px 10px;
+  font-weight: 900;
+}
+
+.tool-button.active {
+  background: var(--primary-soft);
+  border-color: #b8deda;
+  color: var(--primary);
+}
+
+.notes-board {
+  position: relative;
+  min-height: 68vh;
+  overflow: auto;
+  background:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px),
+    #fbfcfe;
+  background-size: 32px 32px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+}
+
+.sticky-note {
+  position: absolute;
+  min-width: 240px;
+  min-height: 240px;
+  display: grid;
+  grid-template-rows: auto 90px minmax(96px, 1fr);
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(23, 32, 51, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 16px 34px rgba(23, 32, 51, 0.16);
+}
+
+.sticky-note-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: move;
+}
+
+.sticky-note select {
+  max-width: 128px;
+  border: 1px solid rgba(23, 32, 51, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.62);
+  padding: 6px;
+  font-weight: 900;
+}
+
+.sticky-note-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.sticky-note-actions button {
+  border: 1px solid rgba(23, 32, 51, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.62);
+  padding: 6px 8px;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.sticky-note textarea {
+  width: 100%;
+  min-width: 0;
+  resize: none;
+  border: 1px solid rgba(23, 32, 51, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.5);
+  color: var(--ink);
+  padding: 10px;
+  line-height: 1.35;
+}
+
+.sticky-note canvas {
+  width: 100%;
+  height: 100%;
+  min-height: 96px;
+  border: 1px dashed rgba(23, 32, 51, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.42);
+  touch-action: none;
+}
+
+.note-resize-handle {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  width: 18px;
+  height: 18px;
+  border-right: 3px solid rgba(23, 32, 51, 0.34);
+  border-bottom: 3px solid rgba(23, 32, 51, 0.34);
+  cursor: nwse-resize;
 }
 
 .paper-title {
@@ -1140,6 +1313,7 @@ select:focus {
   .app-header,
   .page-heading,
   .subject-toolbar,
+  .notes-header,
   .paper-card-header,
   .paper-actions,
   .summary-strip,
@@ -1183,5 +1357,9 @@ select:focus {
 
   .checklist-score {
     text-align: left;
+  }
+
+  .notes-toolbar {
+    top: 96px;
   }
 }
