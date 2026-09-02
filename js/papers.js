@@ -1,15 +1,15 @@
 import {
   addDoc,
   collection,
-  deleteDoc,
   doc,
-  getDoc,
   getDocs,
   serverTimestamp,
+  getDoc,
   setDoc
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { db } from "./firebase.js";
 import { formatDate, formatPercent, requireAuth, showToast, wireLogout } from "./app.js";
+import { builtInCatalogues, catalogueLabel } from "../data/catalogues.js";
 
 const state = {
   user: null,
@@ -17,65 +17,58 @@ const state = {
   papers: [],
   attempts: [],
   selectedPaper: null,
-  pendingCatalogueReplacement: null
+  selectedSubjectIds: []
 };
 
 export async function loadCatalogue(uid = null) {
-  const response = await fetch("data/catalogue.json");
-  if (!response.ok) throw new Error("Could not load data/catalogue.json.");
-  const manifest = await response.json();
-  const catalogues = manifest.catalogues || [];
-
-  const staticCatalogues = await Promise.all(catalogues.map(async (entry) => {
-    const catalogueResponse = await fetch(entry.path);
-    if (!catalogueResponse.ok) throw new Error(`Could not load ${entry.path}.`);
-    const data = await catalogueResponse.json();
-    return normalizeCatalogueRecord({
-      id: entry.path,
-      source: "static",
-      path: entry.path,
-      data
-    });
-  }));
-
-  if (!uid) return staticCatalogues;
-
-  const importedCatalogues = await loadImportedCatalogues(uid);
-  return [...staticCatalogues, ...importedCatalogues];
+  const catalogues = builtInCatalogues.map(normalizeCatalogueRecord);
+  if (!uid) return catalogues;
+  const selectedIds = await loadSelectedSubjectIds(uid);
+  return catalogues.filter((catalogue) => selectedIds.includes(catalogue.id));
 }
 
-async function loadImportedCatalogues(uid) {
-  const snapshot = await getDocs(collection(db, "users", uid, "catalogues"));
-  return snapshot.docs
-    .map((catalogueDoc) => normalizeCatalogueRecord({
-      id: catalogueDoc.id,
-      source: "imported",
-      data: catalogueDoc.data()
-    }))
-    .sort((a, b) => catalogueLabel(a).localeCompare(catalogueLabel(b)));
+export function loadAllBuiltInCatalogues() {
+  return builtInCatalogues.map(normalizeCatalogueRecord);
+}
+
+export async function loadSelectedSubjectIds(uid) {
+  const userSnap = await getDoc(doc(db, "users", uid));
+  const selectedSubjects = userSnap.exists() ? userSnap.data().selectedSubjects : [];
+  return Array.isArray(selectedSubjects) ? selectedSubjects.filter((id) => typeof id === "string") : [];
+}
+
+export async function saveSelectedSubjectIds(uid, selectedSubjectIds) {
+  const uniqueIds = [...new Set(selectedSubjectIds)].filter((id) => builtInCatalogues.some((catalogue) => catalogue.id === id));
+  await setDoc(doc(db, "users", uid), { selectedSubjects: uniqueIds }, { merge: true });
+  return uniqueIds;
 }
 
 function normalizeCatalogueRecord(record) {
-  const data = record.data;
+  const data = record.data || {};
   const syllabusCode = data.syllabusCode || data.code;
+  const id = record.id || data.catalogueId;
 
   return {
     ...record,
+    id,
+    source: record.source || "built-in",
     data: {
       ...data,
+      catalogueId: data.catalogueId || id,
       syllabusCode,
       code: syllabusCode
     },
-    papers: (data.papers || []).map((paper) => ({
+    papers: (record.papers || data.papers || []).map((paper) => ({
       ...paper,
       board: data.board,
       subject: data.subject,
       syllabusCode,
       code: syllabusCode,
       qualification: data.qualification,
-      catalogueId: record.id,
-      cataloguePath: record.path || record.id,
-      catalogueSource: record.source
+      route: data.route || paper.route || null,
+      catalogueId: id,
+      cataloguePath: id,
+      catalogueSource: record.source || "built-in"
     }))
   };
 }
@@ -118,10 +111,6 @@ export function compareAttempts(a, b) {
   return String(a.id || "").localeCompare(String(b.id || ""));
 }
 
-function catalogueLabel(catalogue) {
-  return `${catalogue.data.board} ${catalogue.data.subject} ${catalogue.data.syllabusCode} ${catalogue.data.qualification}`;
-}
-
 function populateFilters() {
   const catalogueSelect = document.querySelector("#filter-catalogue");
   if (catalogueSelect) {
@@ -129,8 +118,7 @@ function populateFilters() {
     catalogueSelect.innerHTML = [
       `<option value="all">All catalogues</option>`,
       ...state.catalogues.map((catalogue) => {
-        const suffix = catalogue.source === "imported" ? " (imported)" : "";
-        return `<option value="${catalogue.id}">${catalogueLabel(catalogue)}${suffix}</option>`;
+        return `<option value="${catalogue.id}">${catalogueLabel(catalogue)}</option>`;
       })
     ].join("");
     catalogueSelect.value = [...catalogueSelect.options].some((option) => option.value === selectedValue) ? selectedValue : "all";
@@ -150,6 +138,10 @@ function populateSelect(selector, label, values) {
 
 function uniqueValues(values) {
   return [...new Set(values.filter((value) => value !== undefined && value !== null && value !== ""))];
+}
+
+function componentLabel(paper) {
+  return paper.board === "Edexcel" ? "Unit" : "Paper";
 }
 
 function filteredPapers() {
@@ -206,7 +198,7 @@ function renderPapers() {
         <div><span>Year</span><strong>${paper.year}</strong></div>
         <div><span>Session</span><strong>${paper.session}</strong></div>
         <div><span>Variant</span><strong>${paper.variant}</strong></div>
-        <div><span>Paper</span><strong>${paper.paper}</strong></div>
+        <div><span>${componentLabel(paper)}</span><strong>${paper.paper}</strong></div>
         <div><span>Type</span><strong>${paper.type}</strong></div>
         <div><span>Max marks</span><strong>${paper.maximumMark}</strong></div>
       </div>
@@ -238,208 +230,13 @@ function renderFileLinks(files = {}) {
   ).join("");
 }
 
-function renderImportedCatalogues() {
-  const container = document.querySelector("#imported-catalogues");
-  if (!container) return;
-
-  const imported = state.catalogues.filter((catalogue) => catalogue.source === "imported");
-  if (!imported.length) {
-    container.innerHTML = `<p class="muted-text">No imported catalogues yet.</p>`;
-    return;
-  }
-
-  container.innerHTML = imported.map((catalogue) => `
-    <article class="imported-catalogue">
-      <div>
-        <strong>${catalogue.data.subject}</strong>
-        <span>${catalogue.data.board} · ${catalogue.data.qualification} · ${catalogue.data.syllabusCode} · ${catalogue.papers.length} papers</span>
-      </div>
-      <button class="button button-secondary" data-remove-catalogue="${catalogue.id}" type="button">Remove</button>
-    </article>
-  `).join("");
-}
-
-function validateCatalogue(data, existingPaperIds = new Set()) {
-  const errors = [];
-  if (!data || typeof data !== "object" || Array.isArray(data)) {
-    return ["JSON must contain one catalogue object."];
-  }
-
-  const syllabusCode = data.syllabusCode || data.code;
-  [
-    ["board", data.board],
-    ["subject", data.subject],
-    ["syllabusCode or code", syllabusCode],
-    ["qualification", data.qualification]
-  ].forEach(([field, value]) => {
-    if (typeof value !== "string" || !value.trim()) errors.push(`Missing or invalid catalogue field: ${field}.`);
-  });
-
-  if (!Array.isArray(data.papers)) {
-    errors.push("Missing or invalid catalogue field: papers must be an array.");
-    return errors;
-  }
-
-  const paperIds = new Set();
-  data.papers.forEach((paper, index) => {
-    const label = `papers[${index}]`;
-    if (!paper || typeof paper !== "object" || Array.isArray(paper)) {
-      errors.push(`${label} must be an object.`);
-      return;
-    }
-
-    if (typeof paper.id !== "string" || !paper.id.trim()) errors.push(`${label}.id is required.`);
-    if (paper.id && paperIds.has(paper.id)) errors.push(`${label}.id duplicates another paper in this import.`);
-    if (paper.id && existingPaperIds.has(paper.id)) errors.push(`${label}.id already exists in another loaded catalogue.`);
-    if (paper.id) paperIds.add(paper.id);
-
-    if (!Number.isFinite(Number(paper.year))) errors.push(`${label}.year must be a number.`);
-    if (typeof paper.session !== "string" || !paper.session.trim()) errors.push(`${label}.session is required.`);
-    if (paper.variant === undefined || paper.variant === null || String(paper.variant).trim() === "") errors.push(`${label}.variant is required.`);
-    if (!Number.isFinite(Number(paper.paper))) errors.push(`${label}.paper must be a number.`);
-    if (typeof paper.name !== "string" || !paper.name.trim()) errors.push(`${label}.name is required.`);
-    if (typeof paper.type !== "string" || !paper.type.trim()) errors.push(`${label}.type is required.`);
-    if (!Number.isFinite(Number(paper.maximumMark)) || Number(paper.maximumMark) <= 0) errors.push(`${label}.maximumMark must be greater than 0.`);
-    if (paper.files !== undefined && (typeof paper.files !== "object" || Array.isArray(paper.files) || paper.files === null)) {
-      errors.push(`${label}.files must be an object when provided.`);
-    }
-  });
-
-  return errors;
-}
-
-function sanitizeCatalogue(data) {
-  const syllabusCode = String(data.syllabusCode || data.code).trim();
-  return {
-    board: String(data.board).trim(),
-    subject: String(data.subject).trim(),
-    syllabusCode,
-    code: syllabusCode,
-    qualification: String(data.qualification).trim(),
-    papers: data.papers.map((paper) => ({
-      id: String(paper.id).trim(),
-      year: Number(paper.year),
-      session: String(paper.session).trim(),
-      sessionCode: paper.sessionCode ? String(paper.sessionCode).trim() : "",
-      variant: String(paper.variant).trim(),
-      paper: Number(paper.paper),
-      name: String(paper.name).trim(),
-      type: String(paper.type).trim(),
-      maximumMark: Number(paper.maximumMark),
-      files: {
-        questionPaper: String(paper.files?.questionPaper || ""),
-        markScheme: String(paper.files?.markScheme || ""),
-        examinerReport: String(paper.files?.examinerReport || "")
-      }
-    }))
-  };
-}
-
-function stableCatalogueId(catalogue) {
-  return [catalogue.board, catalogue.syllabusCode, catalogue.qualification]
-    .map((value) => String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""))
-    .join("_");
-}
-
-function showReplacementModal(catalogue, catalogueId, existingRef) {
-  state.pendingCatalogueReplacement = { catalogue, catalogueId, existingRef };
-  document.querySelector("#replace-catalogue-message").textContent = `${catalogue.subject} ${catalogue.qualification} ${catalogue.syllabusCode} already exists. Replacing it will update the catalogue papers, but it will not delete any historical attempts.`;
-  document.querySelector("#replace-catalogue-modal")?.showModal();
-}
-
-async function saveImportedCatalogue(catalogue, catalogueId, result) {
-  await setDoc(doc(db, "users", state.user.uid, "catalogues", catalogueId), {
-    ...catalogue,
-    importedBy: state.user.uid,
-    importedAt: serverTimestamp()
-  });
-
-  state.catalogues = await loadCatalogue(state.user.uid);
-  state.papers = flattenPapers(state.catalogues);
-  populateFilters();
-  renderImportedCatalogues();
-  renderPapers();
-  result.classList.add("success");
-  result.innerHTML = `
-    <strong>Successfully imported</strong>
-    <dl>
-      <div><dt>Subject</dt><dd>${catalogue.subject}</dd></div>
-      <div><dt>Level</dt><dd>${catalogue.qualification}</dd></div>
-      <div><dt>Syllabus</dt><dd>${catalogue.syllabusCode}</dd></div>
-      <div><dt>Papers</dt><dd>${catalogue.papers.length}</dd></div>
-    </dl>
-  `;
-  showToast("Catalogue imported.");
-}
-
-async function handleJsonImport(event) {
-  const file = event.target.files?.[0];
-  event.target.value = "";
-  if (!file) return;
-
-  const result = document.querySelector("#import-result");
-  result.classList.remove("hidden", "success");
-  result.textContent = "Reading JSON...";
-
-  try {
-    const parsed = JSON.parse(await file.text());
-    const precheckedCatalogue = sanitizeCatalogue(parsed);
-    const catalogueId = stableCatalogueId(precheckedCatalogue);
-    const existingRef = doc(db, "users", state.user.uid, "catalogues", catalogueId);
-    const existingDoc = await getDoc(existingRef);
-    const existingPaperIds = new Set(state.papers
-      .filter((paper) => paper.catalogueId !== catalogueId)
-      .map((paper) => paper.id));
-    const errors = validateCatalogue(parsed, existingPaperIds);
-
-    if (errors.length) {
-      result.innerHTML = `<strong>Import failed</strong><ul>${errors.map((error) => `<li>${error}</li>`).join("")}</ul>`;
-      return;
-    }
-
-    const catalogue = precheckedCatalogue;
-    if (existingDoc.exists()) {
-      showReplacementModal(catalogue, catalogueId, existingRef);
-      result.textContent = "A catalogue with this board, syllabus, and level already exists.";
-      return;
-    }
-
-    await saveImportedCatalogue(catalogue, catalogueId, result);
-  } catch (error) {
-    const message = error instanceof SyntaxError
-      ? "The selected file is not valid JSON."
-      : "Could not import this catalogue. Please check your Firebase rules and try again.";
-    result.innerHTML = `<strong>Import failed</strong><p>${message}</p>`;
-  }
-}
-
-async function removeCatalogue(catalogueId) {
-  const catalogue = state.catalogues.find((item) => item.id === catalogueId && item.source === "imported");
-  if (!catalogue) return;
-
-  const confirmed = window.confirm(`Remove ${catalogue.data.subject} ${catalogue.data.qualification} ${catalogue.data.syllabusCode}? Historical attempts will not be deleted.`);
-  if (!confirmed) return;
-
-  try {
-    await deleteDoc(doc(db, "users", state.user.uid, "catalogues", catalogueId));
-    state.catalogues = await loadCatalogue(state.user.uid);
-    state.papers = flattenPapers(state.catalogues);
-    populateFilters();
-    renderImportedCatalogues();
-    renderPapers();
-    showToast("Catalogue removed. Attempts were kept.");
-  } catch (error) {
-    showToast("Could not remove catalogue. Check your Firebase rules and try again.", "error");
-  }
-}
-
 function openCompletionModal(paperId) {
   const paper = state.papers.find((item) => item.id === paperId);
   const modal = document.querySelector("#completion-modal");
   if (!paper || !modal) return;
 
   state.selectedPaper = paper;
-  document.querySelector("#modal-paper-meta").textContent = `${paper.year} ${paper.session} Variant ${paper.variant} · Paper ${paper.paper}`;
+  document.querySelector("#modal-paper-meta").textContent = `${paper.year} ${paper.session} Variant ${paper.variant} · ${componentLabel(paper)} ${paper.paper}`;
   document.querySelector("#modal-title").textContent = paper.name;
   document.querySelector("#maximum-mark-label").textContent = `/ ${paper.maximumMark}`;
   const scoreInput = document.querySelector("#score-input");
@@ -525,21 +322,6 @@ function wirePaperEvents() {
   });
 
   document.querySelector("#completion-form")?.addEventListener("submit", saveAttempt);
-  document.querySelector("#json-import-input")?.addEventListener("change", handleJsonImport);
-  document.querySelector("#replace-catalogue-form")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const pending = state.pendingCatalogueReplacement;
-    if (!pending) return;
-    await saveImportedCatalogue(pending.catalogue, pending.catalogueId, document.querySelector("#import-result"));
-    state.pendingCatalogueReplacement = null;
-    document.querySelector("#replace-catalogue-modal")?.close();
-  });
-  document.querySelector("#cancel-replace")?.addEventListener("click", () => document.querySelector("#replace-catalogue-modal")?.close());
-  document.querySelector("#cancel-replace-x")?.addEventListener("click", () => document.querySelector("#replace-catalogue-modal")?.close());
-  document.querySelector("#imported-catalogues")?.addEventListener("click", (event) => {
-    const catalogueId = event.target.closest("[data-remove-catalogue]")?.dataset.removeCatalogue;
-    if (catalogueId) removeCatalogue(catalogueId);
-  });
   document.querySelector("#cancel-completion")?.addEventListener("click", () => document.querySelector("#completion-modal")?.close());
   document.querySelector("#completion-modal .modal-close")?.addEventListener("click", () => document.querySelector("#completion-modal")?.close());
   document.querySelector("#close-history")?.addEventListener("click", () => document.querySelector("#history-modal")?.close());
@@ -555,7 +337,6 @@ async function initPapersPage(user) {
     state.papers = flattenPapers(state.catalogues);
     state.attempts = await loadAttempts(user.uid);
     populateFilters();
-    renderImportedCatalogues();
     renderPapers();
     document.querySelector("#papers-loading")?.classList.add("hidden");
   } catch (error) {
