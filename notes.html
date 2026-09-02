@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Paper Notes | Past Paper Tracker</title>
+    <link rel="stylesheet" href="css/styles.css">
+  </head>
+  <body>
+    <header class="site-header app-header">
+      <a class="brand" href="dashboard.html">
+        <span class="brand-mark">P</span>
+        <span>Past Paper Tracker</span>
+      </a>
+      <nav class="nav" aria-label="Primary">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="papers.html">Papers</a>
+        <button id="logout-button" class="button button-secondary" type="button">Logout</button>
+      </nav>
+    </header>
+
+    <main class="notes-shell">
+      <section id="notes-loading" class="loading-card">Loading notes...</section>
+      <section id="notes-error" class="empty-state hidden" role="alert"></section>
+
+      <section id="notes-workspace" class="hidden">
+        <div class="notes-header">
+          <a id="back-to-paper" class="button button-secondary" href="dashboard.html">Back to Paper</a>
+          <div>
+            <p class="eyebrow" id="notes-subject-meta"></p>
+            <p class="notes-paper-meta" id="notes-paper-meta"></p>
+            <h1>Paper Notes</h1>
+            <p class="muted-text">Write down mistakes, concepts to revise, reminders, and quick corrections.</p>
+          </div>
+          <button class="button button-primary" id="new-note-button" type="button">+ New Note</button>
+        </div>
+
+        <div class="notes-toolbar" aria-label="Drawing tools">
+          <button class="tool-button active" data-tool="pen" type="button">Pen</button>
+          <button class="tool-button" data-tool="highlighter" type="button">Highlighter</button>
+          <button class="tool-button" data-tool="eraser" type="button">Eraser</button>
+          <button class="tool-button" id="undo-drawing" type="button">Undo</button>
+          <button class="tool-button" id="redo-drawing" type="button">Redo</button>
+          <button class="tool-button" id="clear-drawing" type="button">Clear</button>
+          <label for="stroke-size">Stroke</label>
+          <input id="stroke-size" type="range" min="2" max="24" value="4">
+          <span id="notes-save-status" class="save-status">Saved</span>
+        </div>
+
+        <section id="notes-board" class="notes-board" aria-live="polite"></section>
+        <section id="notes-empty" class="empty-state hidden">
+          <h2>No notes yet</h2>
+          <p>Add a sticky note for the mistakes or ideas you want to remember from this paper.</p>
+        </section>
+      </section>
+    </main>
+
+    <dialog id="delete-note-modal" class="modal">
+      <div class="modal-card">
+        <button class="modal-close" aria-label="Close" type="button" id="cancel-delete-note-x">&times;</button>
+        <p class="eyebrow">Delete note</p>
+        <h2>Delete this note?</h2>
+        <p class="muted-text">Only this sticky note will be removed.</p>
+        <div class="modal-actions">
+          <button class="button button-secondary" type="button" id="cancel-delete-note">Cancel</button>
+          <button class="button button-danger" type="button" id="confirm-delete-note">Delete</button>
+        </div>
+      </div>
+    </dialog>
+
+    <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+    <script type="module" src="js/notes.js"></script>
+  </body>
+</html>
