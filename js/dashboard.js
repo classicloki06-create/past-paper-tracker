@@ -3,6 +3,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { db } from "./firebase.js";
@@ -27,6 +28,7 @@ const state = {
   catalogues: [],
   subjects: [],
   attempts: [],
+  notes: [],
   selectedSubjectIds: [],
   currentCatalogueId: sessionStorage.getItem("currentCatalogueId") || "",
   selectedCatalogue: null,
@@ -64,6 +66,15 @@ function attemptsForCatalogue(catalogue) {
   return state.attempts
     .filter((attempt) => attemptBelongsToCatalogue(attempt, catalogue, counts))
     .sort(compareAttempts);
+}
+
+async function loadNotes(uid) {
+  const snapshot = await getDocs(collection(db, "users", uid, "notes"));
+  return snapshot.docs.map((noteDoc) => ({ id: noteDoc.id, ...noteDoc.data() }));
+}
+
+function notesForPaper(paper) {
+  return state.notes.filter((note) => note.catalogueId === paper.catalogueId && note.paperId === paper.id);
 }
 
 function buildAnalytics(catalogue) {
@@ -291,14 +302,27 @@ function showSubject(catalogueId) {
   if (state.currentCatalogueId !== catalogue.id) state.trackerNav = { year: null, session: "", variant: "" };
   state.currentCatalogueId = catalogue.id;
   state.selectedCatalogue = catalogue;
+  const hashParams = new URLSearchParams(window.location.hash.slice(1));
+  const hashYear = Number(hashParams.get("year"));
+  state.trackerNav = {
+    year: Number.isFinite(hashYear) && hashYear > 0 ? hashYear : state.trackerNav.year,
+    session: hashParams.get("session") || state.trackerNav.session || "",
+    variant: hashParams.get("variant") || state.trackerNav.variant || ""
+  };
   sessionStorage.setItem("currentCatalogueId", catalogue.id);
-
-  const nextHash = `catalogue=${encodeURIComponent(catalogue.id)}`;
-  if (window.location.hash.slice(1) !== nextHash) {
-    history.replaceState(null, "", `#${nextHash}`);
-  }
+  updateSubjectHash();
 
   renderSelectedSubject();
+}
+
+function updateSubjectHash() {
+  if (!state.currentCatalogueId) return;
+  const nextParams = new URLSearchParams({ catalogue: state.currentCatalogueId });
+  if (state.trackerNav.year) nextParams.set("year", state.trackerNav.year);
+  if (state.trackerNav.session) nextParams.set("session", state.trackerNav.session);
+  if (state.trackerNav.variant) nextParams.set("variant", state.trackerNav.variant);
+  const nextHash = nextParams.toString();
+  if (window.location.hash.slice(1) !== nextHash) history.replaceState(null, "", `#${nextHash}`);
 }
 
 function renderSelectedSubject() {
@@ -593,6 +617,8 @@ function renderChecklistPaper(paper, subjectAttempts) {
   const paperAttempts = attemptsForPaper(subjectAttempts, paper.id);
   const best = bestAttempt(paperAttempts);
   const attempted = paperAttempts.length > 0;
+  const notes = notesForPaper(paper);
+  const notesUrl = `notes.html?catalogueId=${encodeURIComponent(paper.catalogueId)}&paperId=${encodeURIComponent(paper.id)}`;
   return `
     <article class="checklist-paper">
       <button class="checklist-paper-main" data-complete="${paper.id}" type="button">
@@ -600,6 +626,7 @@ function renderChecklistPaper(paper, subjectAttempts) {
         <span>
           <strong>${componentLabel(paper)}</strong>
           <em>${paper.name}</em>
+          ${notes.length ? `<small>${notes.length} note${notes.length === 1 ? "" : "s"}</small>` : ""}
         </span>
       </button>
       <div class="checklist-score">
@@ -607,6 +634,7 @@ function renderChecklistPaper(paper, subjectAttempts) {
         <span>${attempted ? `${formatPercent(best.percentage)} · ${paperAttempts.length} attempt${paperAttempts.length === 1 ? "" : "s"}` : "Not attempted"}</span>
       </div>
       <button class="button button-primary" data-complete="${paper.id}" type="button">Open</button>
+      <a class="button button-secondary" href="${notesUrl}">Notes</a>
       ${attempted ? `<button class="button button-secondary" data-history="${paper.id}" type="button">History</button>` : ""}
     </article>
   `;
@@ -764,6 +792,7 @@ function wireEvents() {
       if (navBack === "subject") state.trackerNav = { year: null, session: "", variant: "" };
       if (navBack === "year") state.trackerNav = { year: state.trackerNav.year, session: "", variant: "" };
       if (navBack === "session") state.trackerNav = { year: state.trackerNav.year, session: state.trackerNav.session, variant: "" };
+      updateSubjectHash();
       renderSelectedSubject();
       return;
     }
@@ -771,6 +800,7 @@ function wireEvents() {
     const year = event.target.closest("[data-nav-year]")?.dataset.navYear;
     if (year) {
       state.trackerNav = { year: Number(year), session: "", variant: "" };
+      updateSubjectHash();
       renderSelectedSubject();
       return;
     }
@@ -778,6 +808,7 @@ function wireEvents() {
     const session = event.target.closest("[data-nav-session]")?.dataset.navSession;
     if (session) {
       state.trackerNav = { year: state.trackerNav.year, session, variant: "" };
+      updateSubjectHash();
       renderSelectedSubject();
       return;
     }
@@ -785,6 +816,7 @@ function wireEvents() {
     const variant = event.target.closest("[data-nav-variant]")?.dataset.navVariant;
     if (variant) {
       state.trackerNav = { year: state.trackerNav.year, session: state.trackerNav.session, variant };
+      updateSubjectHash();
       renderSelectedSubject();
       return;
     }
@@ -825,6 +857,7 @@ async function initDashboard(user) {
     state.catalogues = await loadCatalogue(user.uid);
     state.subjects = state.catalogues;
     state.attempts = await loadAttempts(user.uid);
+    state.notes = await loadNotes(user.uid);
 
     document.querySelector("#dashboard-loading")?.classList.add("hidden");
     document.querySelector("#dashboard-content")?.classList.remove("hidden");
