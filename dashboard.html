@@ -25,7 +25,7 @@
           <p class="eyebrow">Your study command centre</p>
           <h1 id="dashboard-title">Choose a Subject</h1>
         </div>
-        <a class="button button-primary" href="papers.html">Import JSON</a>
+        <button class="button button-primary" id="select-subject-button" type="button">+ Select Subject</button>
       </section>
 
       <section id="dashboard-loading" class="loading-card">Loading your progress...</section>
@@ -33,11 +33,12 @@
 
       <section id="dashboard-content" class="hidden">
         <section id="subject-selection" class="subject-selection">
+          <h2>My Subjects</h2>
           <div id="subject-grid" class="subject-grid"></div>
           <section id="subjects-empty" class="empty-state hidden">
-            <h2>No subjects imported yet.</h2>
-            <p>Import a JSON catalogue to start tracking a subject.</p>
-            <a class="button button-primary" href="papers.html">Import JSON</a>
+            <h2>No subjects selected yet.</h2>
+            <p>Add a built-in CIE or Edexcel subject to start tracking your papers.</p>
+            <button class="button button-primary" id="select-subject-empty" type="button">+ Select Subject</button>
           </section>
         </section>
 
@@ -87,6 +88,20 @@
         <p class="eyebrow" id="history-meta"></p>
         <h2>Attempt History</h2>
         <div id="history-list" class="history-list"></div>
+      </div>
+    </dialog>
+
+    <dialog id="subject-selector-modal" class="modal modal-wide">
+      <div class="modal-card">
+        <button class="modal-close" aria-label="Close" type="button" id="cancel-subject-selector-x">&times;</button>
+        <p class="eyebrow">Choose Subject</p>
+        <h2>Add a Subject</h2>
+        <div id="selector-steps" class="selector-steps" aria-label="Selection steps"></div>
+        <div id="subject-selector-body" class="subject-selector-body"></div>
+        <div class="modal-actions">
+          <button class="button button-secondary" type="button" id="cancel-subject-selector">Cancel</button>
+          <button class="button button-primary" type="button" id="add-selected-subject" disabled>Add to Tracker</button>
+        </div>
       </div>
     </dialog>
 
