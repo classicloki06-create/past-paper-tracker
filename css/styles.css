@@ -790,58 +790,88 @@ select:focus {
   margin-top: 18px;
 }
 
-.year-section {
+.tracker-breadcrumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.tracker-breadcrumbs button {
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  font-weight: 900;
+  padding: 4px 0;
+}
+
+.tracker-breadcrumbs button:hover {
+  text-decoration: underline;
+}
+
+.tracker-breadcrumbs b {
+  color: #9aa6b7;
+}
+
+.tracker-step {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 8px;
   box-shadow: var(--shadow);
-  overflow: hidden;
 }
 
-.year-section summary {
-  cursor: pointer;
-  padding: 16px 18px;
-  font-size: 1.4rem;
-  font-weight: 900;
-  border-bottom: 1px solid var(--line);
+.tracker-step h3 {
+  margin: 0;
+  font-size: clamp(1.35rem, 3vw, 2rem);
 }
 
-.year-section:not([open]) summary {
-  border-bottom: 0;
+.tracker-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
 }
 
-.session-group {
-  padding: 16px 18px 18px;
+.tracker-choice {
+  min-height: 86px;
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--page);
+  color: var(--ink);
+  padding: 16px;
+  text-align: left;
 }
 
-.session-group + .session-group {
-  border-top: 1px solid var(--line);
+.tracker-choice:hover {
+  background: #fff;
+  border-color: #aaccc7;
+  transform: translateY(-1px);
 }
 
-.session-group h3 {
-  margin: 0 0 12px;
-  color: var(--primary-dark);
-  font-size: 1.05rem;
+.tracker-choice strong {
+  font-size: 1.25rem;
 }
 
-.variant-group {
+.tracker-choice span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.tracker-paper-list {
   display: grid;
   gap: 10px;
 }
 
-.variant-group + .variant-group {
-  margin-top: 16px;
-}
-
-.variant-group h4 {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.92rem;
-}
-
 .checklist-paper {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
   align-items: center;
   gap: 12px;
   padding: 12px;
