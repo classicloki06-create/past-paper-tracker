@@ -1,16 +1,27 @@
 const cieSessions = [
-  { year: 2026, session: "May/June", sessionCode: "mj" },
-  { year: 2025, session: "May/June", sessionCode: "mj" },
-  { year: 2025, session: "October/November", sessionCode: "on" },
-  { year: 2024, session: "May/June", sessionCode: "mj" },
-  { year: 2024, session: "October/November", sessionCode: "on" },
-  { year: 2023, session: "May/June", sessionCode: "mj" },
-  { year: 2023, session: "October/November", sessionCode: "on" },
-  { year: 2022, session: "May/June", sessionCode: "mj" },
-  { year: 2022, session: "October/November", sessionCode: "on" },
-  { year: 2021, session: "May/June", sessionCode: "mj" },
-  { year: 2021, session: "October/November", sessionCode: "on" },
-  { year: 2020, session: "October/November", sessionCode: "on" }
+  { year: 2026, session: "February/March", sessionCode: "fm", variants: ["2"] },
+  { year: 2026, session: "May/June", sessionCode: "mj", variants: ["1", "2", "3"] },
+
+  { year: 2025, session: "February/March", sessionCode: "fm", variants: ["2"] },
+  { year: 2025, session: "May/June", sessionCode: "mj", variants: ["1", "2", "3"] },
+  { year: 2025, session: "October/November", sessionCode: "on", variants: ["1", "2", "3"] },
+
+  { year: 2024, session: "February/March", sessionCode: "fm", variants: ["2"] },
+  { year: 2024, session: "May/June", sessionCode: "mj", variants: ["1", "2", "3"] },
+  { year: 2024, session: "October/November", sessionCode: "on", variants: ["1", "2", "3"] },
+
+  { year: 2023, session: "February/March", sessionCode: "fm", variants: ["2"] },
+  { year: 2023, session: "May/June", sessionCode: "mj", variants: ["1", "2", "3"] },
+  { year: 2023, session: "October/November", sessionCode: "on", variants: ["1", "2", "3"] },
+
+  { year: 2022, session: "February/March", sessionCode: "fm", variants: ["2"] },
+  { year: 2022, session: "May/June", sessionCode: "mj", variants: ["1", "2", "3"] },
+  { year: 2022, session: "October/November", sessionCode: "on", variants: ["1", "2", "3"] },
+
+  { year: 2021, session: "May/June", sessionCode: "mj", variants: ["1", "2", "3"] },
+  { year: 2021, session: "October/November", sessionCode: "on", variants: ["1", "2", "3"] },
+
+  { year: 2020, session: "October/November", sessionCode: "on", variants: ["1", "2", "3"] }
 ];
 
 const edexcelSessions = [
@@ -168,26 +179,30 @@ function slug(value) {
 }
 
 function buildPapers({ catalogueId, board, subject, syllabusCode, qualification, route, sessions, variants, components }) {
-  return sessions.flatMap(({ year, session, sessionCode }) => variants.flatMap((variant) => components.map((component) => ({
-    id: [catalogueId, year, sessionCode, `v${variant}`, `p${component.paper}`].map(slug).join("-"),
-    year,
-    session,
-    sessionCode,
-    variant: String(variant),
-    paper: component.paper,
-    name: `${subject} ${component.name}`,
-    type: component.type,
-    maximumMark: component.maximumMark,
-    files: { questionPaper: "", markScheme: "", examinerReport: "" },
-    board,
-    subject,
-    syllabusCode,
-    code: syllabusCode,
-    qualification,
-    route,
-    catalogueId,
-    catalogueSource: "built-in"
-  }))));
+  return sessions.flatMap(({ year, session, sessionCode, variants: sessionVariants }) => {
+    const activeVariants = sessionVariants || variants;
+
+    return activeVariants.flatMap((variant) => components.map((component) => ({
+      id: [catalogueId, year, sessionCode, `v${variant}`, `p${component.paper}`].map(slug).join("-"),
+      year,
+      session,
+      sessionCode,
+      variant: String(variant),
+      paper: component.paper,
+      name: `${subject} ${component.name}`,
+      type: component.type,
+      maximumMark: component.maximumMark,
+      files: { questionPaper: "", markScheme: "", examinerReport: "" },
+      board,
+      subject,
+      syllabusCode,
+      code: syllabusCode,
+      qualification,
+      route,
+      catalogueId,
+      catalogueSource: "built-in"
+    })));
+  });
 }
 
 function buildCatalogue(config) {
