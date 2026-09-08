@@ -137,13 +137,13 @@ function renderNotes() {
   const empty = document.querySelector("#notes-empty");
   if (!board || !empty) return;
 
-  state.canvases.clear();
+state.canvases.clear();
   if (!state.notes.length) {
     board.innerHTML = `
       <div class="notes-board-empty">
         <h2>No notes yet</h2>
-        <p>Click New Note, then choose a typing note or a drawing note.</p>
-        <button class="button button-primary" type="button" data-open-note-type>+ New Note</button>
+        <p>Click New Note to start writing.</p>
+        <button class="button button-primary" type="button" data-create-text-note>+ New Note</button>
       </div>
     `;
     empty.classList.add("hidden");
@@ -275,7 +275,9 @@ function setupCanvas(note) {
 
 async function createNote(noteMode = "text", base = {}) {
   const isDrawing = noteMode === "drawing";
+  const temporaryId = `local-${Date.now()}`;
   const note = normalizeNote({
+    id: temporaryId,
     catalogueId: state.catalogue.id,
     paperId: state.paper.id,
     year: state.paper.year,
@@ -295,15 +297,27 @@ async function createNote(noteMode = "text", base = {}) {
     updatedAt: serverTimestamp()
   });
 
+  state.notes.push(note);
+  state.activeNoteId = temporaryId;
+  renderNotes();
+  setStatus("Saving...");
+
   try {
-    const noteRef = await addDoc(collection(db, "users", state.user.uid, "notes"), note);
-    state.notes.push({ ...note, id: noteRef.id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+    const { id, ...firestoreNote } = note;
+    const noteRef = await addDoc(collection(db, "users", state.user.uid, "notes"), firestoreNote);
+    const savedNote = noteById(temporaryId);
+    if (savedNote) {
+      savedNote.id = noteRef.id;
+      savedNote.createdAt = new Date().toISOString();
+      savedNote.updatedAt = new Date().toISOString();
+    }
     state.activeNoteId = noteRef.id;
     renderNotes();
     setStatus("Saved");
   } catch (error) {
     console.error("Could not create note:", error);
-    showToast("Could not create note.", "error");
+    setStatus("Could not save note.", true);
+    showToast("Note opened, but Firebase did not save it yet.", "error");
   }
 }
 
@@ -440,7 +454,7 @@ function beginResize(event, noteId) {
 
 function wireEvents() {
   wireLogout();
-  document.querySelector("#new-note-button")?.addEventListener("click", openNoteTypeModal);
+  document.querySelector("#new-note-button")?.addEventListener("click", () => createNote("text"));
   document.querySelector("#cancel-note-type")?.addEventListener("click", closeNoteTypeModal);
   document.querySelector("#cancel-note-type-x")?.addEventListener("click", closeNoteTypeModal);
   document.querySelector("#note-type-modal")?.addEventListener("click", (event) => {
@@ -479,8 +493,8 @@ function wireEvents() {
     debouncedSave(noteId, { noteType: note.noteType }, 250);
   });
   document.querySelector("#notes-board")?.addEventListener("click", (event) => {
-    if (event.target.closest("[data-open-note-type]")) {
-      openNoteTypeModal();
+    if (event.target.closest("[data-create-text-note]")) {
+      createNote("text");
       return;
     }
 
