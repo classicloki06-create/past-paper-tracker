@@ -1256,6 +1256,14 @@ select:focus {
   width: min(460px, 100%);
 }
 
+.modal[open] {
+  display: block;
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  max-height: min(90vh, 620px);
+}
+
 .modal-wide {
   width: min(620px, 100%);
 }
