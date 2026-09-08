@@ -120,7 +120,7 @@ async function loadNotes() {
 function noteTemplate(note) {
   const isDrawing = note.noteMode === "drawing";
   return `
-    <article class="sticky-note ${isDrawing ? "sticky-note-drawing" : "sticky-note-text"}" data-note-id="${note.id}" style="left:${note.x}px;top:${note.y}px;width:${note.width}px;height:${note.height}px;background:${noteColour(note.noteType)}">
+    <article class="sticky-note ${isDrawing ? "sticky-note-drawing" : "sticky-note-text"}" data-note-id="${note.id}" style="background:${noteColour(note.noteType)}">
       <div class="sticky-note-top" data-drag-note="${note.id}">
         <select data-note-type="${note.id}" aria-label="Note type">
           <option value="mistake" ${note.noteType === "mistake" ? "selected" : ""}>Mistake</option>
@@ -136,7 +136,6 @@ function noteTemplate(note) {
       ${isDrawing
         ? `<canvas data-note-canvas="${note.id}" aria-label="Drawing area for note"></canvas>`
         : `<textarea data-note-text="${note.id}" aria-label="Sticky note text" placeholder="Write the mistake, concept, or reminder...">${escapeHtml(note.text)}</textarea>`}
-      <span class="note-resize-handle" data-resize-note="${note.id}" aria-hidden="true"></span>
     </article>
   `;
 }
@@ -146,8 +145,9 @@ function renderNotes() {
   const empty = document.querySelector("#notes-empty");
   if (!board || !empty) return;
 
-state.canvases.clear();
+  state.canvases.clear();
   if (!state.notes.length) {
+    board.classList.remove("notes-list-mode");
     board.innerHTML = `
       <div class="notes-board-empty">
         <h2>No notes yet</h2>
@@ -160,10 +160,18 @@ state.canvases.clear();
     return;
   }
 
+  board.classList.add("notes-list-mode");
   board.innerHTML = state.notes.map(noteTemplate).join("");
   empty.classList.add("hidden");
   state.notes.filter((note) => note.noteMode === "drawing").forEach(setupCanvas);
   updateToolbarVisibility();
+}
+
+function focusNote(noteId) {
+  window.setTimeout(() => {
+    const textarea = document.querySelector(`[data-note-text="${CSS.escape(noteId)}"]`);
+    textarea?.focus();
+  }, 0);
 }
 
 function quickNoteId() {
@@ -369,6 +377,7 @@ async function createNote(noteMode = "text", base = {}) {
   state.notes.push(note);
   state.activeNoteId = temporaryId;
   renderNotes();
+  focusNote(temporaryId);
   setStatus("Saving...");
 
   try {
@@ -382,6 +391,7 @@ async function createNote(noteMode = "text", base = {}) {
     }
     state.activeNoteId = noteRef.id;
     renderNotes();
+    focusNote(noteRef.id);
     setStatus("Saved");
   } catch (error) {
     console.error("Could not create note:", error);
@@ -583,12 +593,6 @@ function wireEvents() {
     }
     const duplicateId = event.target.closest("[data-duplicate-note]")?.dataset.duplicateNote;
     if (duplicateId) duplicateNote(duplicateId);
-  });
-  document.querySelector("#notes-board")?.addEventListener("pointerdown", (event) => {
-    const dragId = event.target.closest("[data-drag-note]")?.dataset.dragNote;
-    const resizeId = event.target.closest("[data-resize-note]")?.dataset.resizeNote;
-    if (resizeId) beginResize(event, resizeId);
-    else if (dragId && event.target.matches(".sticky-note-top")) beginMove(event, dragId);
   });
 }
 
