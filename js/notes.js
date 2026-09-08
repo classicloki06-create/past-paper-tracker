@@ -135,8 +135,21 @@ function renderNotes() {
   if (!board || !empty) return;
 
   state.canvases.clear();
+  if (!state.notes.length) {
+    board.innerHTML = `
+      <div class="notes-board-empty">
+        <h2>No notes yet</h2>
+        <p>Click New Note, then choose a typing note or a drawing note.</p>
+        <button class="button button-primary" type="button" data-open-note-type>+ New Note</button>
+      </div>
+    `;
+    empty.classList.add("hidden");
+    updateToolbarVisibility();
+    return;
+  }
+
   board.innerHTML = state.notes.map(noteTemplate).join("");
-  empty.classList.toggle("hidden", state.notes.length > 0);
+  empty.classList.add("hidden");
   state.notes.filter((note) => note.noteMode === "drawing").forEach(setupCanvas);
   updateToolbarVisibility();
 }
@@ -170,6 +183,20 @@ function updateToolbarVisibility() {
   if (!toolbar) return;
   const activeNote = noteById(state.activeNoteId);
   toolbar.classList.toggle("hidden", activeNote?.noteMode !== "drawing");
+}
+
+function openNoteTypeModal() {
+  const modal = document.querySelector("#note-type-modal");
+  if (!modal) return;
+  if (typeof modal.showModal === "function") modal.showModal();
+  else modal.setAttribute("open", "");
+}
+
+function closeNoteTypeModal() {
+  const modal = document.querySelector("#note-type-modal");
+  if (!modal) return;
+  if (typeof modal.close === "function") modal.close();
+  else modal.removeAttribute("open");
 }
 
 function drawStoredImage(note, canvas, ctx) {
@@ -410,13 +437,13 @@ function beginResize(event, noteId) {
 
 function wireEvents() {
   wireLogout();
-  document.querySelector("#new-note-button")?.addEventListener("click", () => document.querySelector("#note-type-modal")?.showModal());
-  document.querySelector("#cancel-note-type")?.addEventListener("click", () => document.querySelector("#note-type-modal")?.close());
-  document.querySelector("#cancel-note-type-x")?.addEventListener("click", () => document.querySelector("#note-type-modal")?.close());
+  document.querySelector("#new-note-button")?.addEventListener("click", openNoteTypeModal);
+  document.querySelector("#cancel-note-type")?.addEventListener("click", closeNoteTypeModal);
+  document.querySelector("#cancel-note-type-x")?.addEventListener("click", closeNoteTypeModal);
   document.querySelector("#note-type-modal")?.addEventListener("click", (event) => {
     const mode = event.target.closest("[data-create-note-mode]")?.dataset.createNoteMode;
     if (!mode) return;
-    document.querySelector("#note-type-modal")?.close();
+    closeNoteTypeModal();
     createNote(mode);
   });
   document.querySelector("#stroke-size")?.addEventListener("input", (event) => {
@@ -449,6 +476,11 @@ function wireEvents() {
     debouncedSave(noteId, { noteType: note.noteType }, 250);
   });
   document.querySelector("#notes-board")?.addEventListener("click", (event) => {
+    if (event.target.closest("[data-open-note-type]")) {
+      openNoteTypeModal();
+      return;
+    }
+
     const noteId = event.target.closest(".sticky-note")?.dataset.noteId;
     if (noteId) {
       state.activeNoteId = noteId;
