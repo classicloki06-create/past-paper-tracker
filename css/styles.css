@@ -1011,6 +1011,39 @@ select:focus {
   color: var(--primary);
 }
 
+.notes-quick-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(23, 32, 51, 0.08);
+}
+
+.notes-quick-card label {
+  color: var(--primary);
+  font-size: 0.88rem;
+  text-transform: uppercase;
+}
+
+.notes-quick-card textarea {
+  width: 100%;
+  min-height: 150px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+  color: var(--ink);
+  padding: 14px;
+  line-height: 1.5;
+}
+
+.notes-quick-card .save-status {
+  margin-left: 0;
+}
+
 .notes-board {
   position: relative;
   min-height: 68vh;
