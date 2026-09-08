@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Paper Notes | Past Paper Tracker</title>
     <link rel="stylesheet" href="css/styles.css">
-    <link rel="stylesheet" href="css/styles.css?v=notes-3">
+    <link rel="stylesheet" href="css/styles.css?v=notes-4">
   </head>
   <body>
     <header class="site-header app-header">
@@ -48,6 +48,12 @@
           <input id="stroke-size" type="range" min="2" max="24" value="4">
           <span id="notes-save-status" class="save-status">Saved</span>
         </div>
+
+        <section class="notes-quick-card" aria-label="Quick paper note">
+          <label for="quick-note-text">Quick Note</label>
+          <textarea id="quick-note-text" placeholder="Start writing your paper notes here..."></textarea>
+          <p id="quick-note-status" class="save-status">Saved</p>
+        </section>
 
         <section id="notes-board" class="notes-board" aria-live="polite"></section>
         <section id="notes-empty" class="empty-state hidden">
@@ -93,6 +99,6 @@
 
     <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
     <script type="module" src="js/notes.js"></script>
-    <script type="module" src="js/notes.js?v=notes-3"></script>
+    <script type="module" src="js/notes.js?v=notes-4"></script>
   </body>
 </html>
