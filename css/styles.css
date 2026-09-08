@@ -975,6 +975,10 @@ select:focus {
   backdrop-filter: blur(12px);
 }
 
+.notes-toolbar.hidden {
+  display: none;
+}
+
 .notes-toolbar label,
 .save-status {
   color: var(--muted);
@@ -1024,14 +1028,21 @@ select:focus {
 .sticky-note {
   position: absolute;
   min-width: 240px;
-  min-height: 240px;
+  min-height: 190px;
   display: grid;
-  grid-template-rows: auto 90px minmax(96px, 1fr);
   gap: 8px;
   padding: 12px;
   border: 1px solid rgba(23, 32, 51, 0.12);
   border-radius: 8px;
   box-shadow: 0 16px 34px rgba(23, 32, 51, 0.16);
+}
+
+.sticky-note-text {
+  grid-template-rows: auto minmax(120px, 1fr);
+}
+
+.sticky-note-drawing {
+  grid-template-rows: auto minmax(170px, 1fr);
 }
 
 .sticky-note-top {
@@ -1068,6 +1079,8 @@ select:focus {
 .sticky-note textarea {
   width: 100%;
   min-width: 0;
+  height: 100%;
+  min-height: 120px;
   resize: none;
   border: 1px solid rgba(23, 32, 51, 0.14);
   border-radius: 8px;
@@ -1085,6 +1098,45 @@ select:focus {
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.42);
   touch-action: none;
+}
+
+.note-type-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.note-type-choice {
+  min-height: 120px;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--page);
+  color: var(--ink);
+  padding: 16px;
+  text-align: left;
+}
+
+.note-type-choice:hover {
+  background: #fff;
+  border-color: #aaccc7;
+}
+
+.note-type-choice strong,
+.note-type-choice span {
+  display: block;
+}
+
+.note-type-choice strong {
+  font-size: 1.2rem;
+}
+
+.note-type-choice span {
+  color: var(--muted);
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .note-resize-handle {
@@ -1361,5 +1413,9 @@ select:focus {
 
   .notes-toolbar {
     top: 96px;
+  }
+
+  .note-type-grid {
+    grid-template-columns: 1fr;
   }
 }
