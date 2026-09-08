@@ -1025,6 +1025,28 @@ select:focus {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
 }
 
+.notes-board-empty {
+  min-height: 68vh;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  padding: 28px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.notes-board-empty h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.55rem;
+}
+
+.notes-board-empty p {
+  max-width: 420px;
+  margin: 0;
+}
+
 .sticky-note {
   position: absolute;
   min-width: 240px;
