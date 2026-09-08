@@ -36,6 +36,7 @@
         </div>
 
         <div class="notes-toolbar" aria-label="Drawing tools">
+        <div class="notes-toolbar hidden" id="notes-toolbar" aria-label="Drawing tools">
           <button class="tool-button active" data-tool="pen" type="button">Pen</button>
           <button class="tool-button" data-tool="highlighter" type="button">Highlighter</button>
           <button class="tool-button" data-tool="eraser" type="button">Eraser</button>
@@ -64,6 +65,27 @@
         <div class="modal-actions">
           <button class="button button-secondary" type="button" id="cancel-delete-note">Cancel</button>
           <button class="button button-danger" type="button" id="confirm-delete-note">Delete</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="note-type-modal" class="modal">
+      <div class="modal-card">
+        <button class="modal-close" aria-label="Close" type="button" id="cancel-note-type-x">&times;</button>
+        <p class="eyebrow">New note</p>
+        <h2>What kind of note?</h2>
+        <div class="note-type-grid">
+          <button class="note-type-choice" type="button" data-create-note-mode="text">
+            <strong>Typing Note</strong>
+            <span>Write quick mistakes, concepts, reminders, or corrections.</span>
+          </button>
+          <button class="note-type-choice" type="button" data-create-note-mode="drawing">
+            <strong>Drawing Note</strong>
+            <span>Sketch equations, diagrams, arrows, and working.</span>
+          </button>
+        </div>
+        <div class="modal-actions">
+          <button class="button button-secondary" type="button" id="cancel-note-type">Cancel</button>
         </div>
       </div>
     </dialog>
