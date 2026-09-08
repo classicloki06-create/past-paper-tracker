@@ -1058,6 +1058,16 @@ select:focus {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
 }
 
+.notes-board.notes-list-mode {
+  min-height: 240px;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 16px;
+  overflow: visible;
+  background: #fbfcfe;
+}
+
 .notes-board-empty {
   min-height: 68vh;
   display: grid;
@@ -1082,6 +1092,7 @@ select:focus {
 
 .sticky-note {
   position: absolute;
+  position: relative;
   min-width: 240px;
   min-height: 190px;
   display: grid;
@@ -1090,6 +1101,11 @@ select:focus {
   border: 1px solid rgba(23, 32, 51, 0.12);
   border-radius: 8px;
   box-shadow: 0 16px 34px rgba(23, 32, 51, 0.16);
+}
+
+.notes-list-mode .sticky-note {
+  width: 100%;
+  min-height: 190px;
 }
 
 .sticky-note-text {
