@@ -79,13 +79,15 @@ function showError(message) {
 }
 
 function normalizeNote(note) {
+  const noteMode = note.noteMode || (note.drawingData && !note.text ? "drawing" : "text");
   return {
     text: "",
     drawingData: "",
+    noteMode,
     x: 24,
     y: 24,
-    width: 280,
-    height: 280,
+    width: noteMode === "drawing" ? 320 : 280,
+    height: noteMode === "drawing" ? 300 : 220,
     noteType: "mistake",
     ...note
   };
@@ -104,8 +106,9 @@ async function loadNotes() {
 }
 
 function noteTemplate(note) {
+  const isDrawing = note.noteMode === "drawing";
   return `
-    <article class="sticky-note" data-note-id="${note.id}" style="left:${note.x}px;top:${note.y}px;width:${note.width}px;height:${note.height}px;background:${noteColour(note.noteType)}">
+    <article class="sticky-note ${isDrawing ? "sticky-note-drawing" : "sticky-note-text"}" data-note-id="${note.id}" style="left:${note.x}px;top:${note.y}px;width:${note.width}px;height:${note.height}px;background:${noteColour(note.noteType)}">
       <div class="sticky-note-top" data-drag-note="${note.id}">
         <select data-note-type="${note.id}" aria-label="Note type">
           <option value="mistake" ${note.noteType === "mistake" ? "selected" : ""}>Mistake</option>
@@ -118,8 +121,9 @@ function noteTemplate(note) {
           <button type="button" data-delete-note="${note.id}" aria-label="Delete note">Delete</button>
         </div>
       </div>
-      <textarea data-note-text="${note.id}" aria-label="Sticky note text" placeholder="Write the mistake, concept, or reminder...">${escapeHtml(note.text)}</textarea>
-      <canvas data-note-canvas="${note.id}" aria-label="Drawing area for note"></canvas>
+      ${isDrawing
+        ? `<canvas data-note-canvas="${note.id}" aria-label="Drawing area for note"></canvas>`
+        : `<textarea data-note-text="${note.id}" aria-label="Sticky note text" placeholder="Write the mistake, concept, or reminder...">${escapeHtml(note.text)}</textarea>`}
       <span class="note-resize-handle" data-resize-note="${note.id}" aria-hidden="true"></span>
     </article>
   `;
@@ -133,7 +137,8 @@ function renderNotes() {
   state.canvases.clear();
   board.innerHTML = state.notes.map(noteTemplate).join("");
   empty.classList.toggle("hidden", state.notes.length > 0);
-  state.notes.forEach(setupCanvas);
+  state.notes.filter((note) => note.noteMode === "drawing").forEach(setupCanvas);
+  updateToolbarVisibility();
 }
 
 function noteById(noteId) {
@@ -160,6 +165,13 @@ function debouncedSave(noteId, updates, delay = 650) {
   }, delay));
 }
 
+function updateToolbarVisibility() {
+  const toolbar = document.querySelector("#notes-toolbar");
+  if (!toolbar) return;
+  const activeNote = noteById(state.activeNoteId);
+  toolbar.classList.toggle("hidden", activeNote?.noteMode !== "drawing");
+}
+
 function drawStoredImage(note, canvas, ctx) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (!note.drawingData) return;
@@ -170,7 +182,7 @@ function drawStoredImage(note, canvas, ctx) {
 
 function resizeCanvasToNote(note, canvas, ctx) {
   const width = Math.max(220, note.width - 24);
-  const height = Math.max(96, note.height - 150);
+  const height = Math.max(150, note.height - 72);
   canvas.width = width;
   canvas.height = height;
   drawStoredImage(note, canvas, ctx);
@@ -231,7 +243,8 @@ function setupCanvas(note) {
   canvas.addEventListener("pointercancel", finishDrawing);
 }
 
-async function createNote(base = {}) {
+async function createNote(noteMode = "text", base = {}) {
+  const isDrawing = noteMode === "drawing";
   const note = normalizeNote({
     catalogueId: state.catalogue.id,
     paperId: state.paper.id,
@@ -243,8 +256,9 @@ async function createNote(base = {}) {
     drawingData: "",
     x: 32 + state.notes.length * 18,
     y: 32 + state.notes.length * 18,
-    width: 280,
-    height: 280,
+    width: isDrawing ? 340 : 280,
+    height: isDrawing ? 300 : 220,
+    noteMode,
     noteType: "mistake",
     ...base,
     createdAt: serverTimestamp(),
@@ -254,6 +268,7 @@ async function createNote(base = {}) {
   try {
     const noteRef = await addDoc(collection(db, "users", state.user.uid, "notes"), note);
     state.notes.push({ ...note, id: noteRef.id, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+    state.activeNoteId = noteRef.id;
     renderNotes();
     setStatus("Saved");
   } catch (error) {
@@ -265,7 +280,7 @@ async function createNote(base = {}) {
 function duplicateNote(noteId) {
   const note = noteById(noteId);
   if (!note) return;
-  createNote({
+  createNote(note.noteMode, {
     text: note.text,
     drawingData: note.drawingData,
     noteType: note.noteType,
@@ -294,6 +309,7 @@ async function deletePendingNote() {
 
 function undoDrawing() {
   const canvasState = state.canvases.get(state.activeNoteId);
+  if (noteById(state.activeNoteId)?.noteMode !== "drawing") return;
   if (!canvasState?.undo.length) return;
   canvasState.redo.push(canvasState.canvas.toDataURL("image/png"));
   const previous = canvasState.undo.pop();
@@ -306,6 +322,7 @@ function undoDrawing() {
 
 function redoDrawing() {
   const canvasState = state.canvases.get(state.activeNoteId);
+  if (noteById(state.activeNoteId)?.noteMode !== "drawing") return;
   if (!canvasState?.redo.length) return;
   canvasState.undo.push(canvasState.canvas.toDataURL("image/png"));
   const next = canvasState.redo.pop();
@@ -319,6 +336,7 @@ function redoDrawing() {
 function clearDrawing() {
   const canvasState = state.canvases.get(state.activeNoteId);
   const note = noteById(state.activeNoteId);
+  if (note?.noteMode !== "drawing") return;
   if (!canvasState || !note) return;
   pushUndo(note.id);
   canvasState.ctx.clearRect(0, 0, canvasState.canvas.width, canvasState.canvas.height);
@@ -330,6 +348,7 @@ function beginMove(event, noteId) {
   const card = event.target.closest(".sticky-note");
   if (!note || !card) return;
   state.activeNoteId = noteId;
+  updateToolbarVisibility();
   const startX = event.clientX;
   const startY = event.clientY;
   const originalX = note.x;
@@ -359,8 +378,9 @@ function beginResize(event, noteId) {
   const note = noteById(noteId);
   const card = event.target.closest(".sticky-note");
   const canvasState = state.canvases.get(noteId);
-  if (!note || !card || !canvasState) return;
+  if (!note || !card) return;
   state.activeNoteId = noteId;
+  updateToolbarVisibility();
   const startX = event.clientX;
   const startY = event.clientY;
   const originalWidth = note.width;
@@ -372,13 +392,15 @@ function beginResize(event, noteId) {
     note.height = Math.max(240, originalHeight + moveEvent.clientY - startY);
     card.style.width = `${note.width}px`;
     card.style.height = `${note.height}px`;
-    resizeCanvasToNote(note, canvasState.canvas, canvasState.ctx);
+    if (canvasState) resizeCanvasToNote(note, canvasState.canvas, canvasState.ctx);
   };
   const end = () => {
     card.removeEventListener("pointermove", move);
     card.removeEventListener("pointerup", end);
     card.removeEventListener("pointercancel", end);
-    debouncedSave(noteId, { width: note.width, height: note.height, drawingData: canvasState.canvas.toDataURL("image/png") }, 250);
+    const updates = { width: note.width, height: note.height };
+    if (canvasState) updates.drawingData = canvasState.canvas.toDataURL("image/png");
+    debouncedSave(noteId, updates, 250);
   };
 
   card.addEventListener("pointermove", move);
@@ -388,7 +410,15 @@ function beginResize(event, noteId) {
 
 function wireEvents() {
   wireLogout();
-  document.querySelector("#new-note-button")?.addEventListener("click", () => createNote());
+  document.querySelector("#new-note-button")?.addEventListener("click", () => document.querySelector("#note-type-modal")?.showModal());
+  document.querySelector("#cancel-note-type")?.addEventListener("click", () => document.querySelector("#note-type-modal")?.close());
+  document.querySelector("#cancel-note-type-x")?.addEventListener("click", () => document.querySelector("#note-type-modal")?.close());
+  document.querySelector("#note-type-modal")?.addEventListener("click", (event) => {
+    const mode = event.target.closest("[data-create-note-mode]")?.dataset.createNoteMode;
+    if (!mode) return;
+    document.querySelector("#note-type-modal")?.close();
+    createNote(mode);
+  });
   document.querySelector("#stroke-size")?.addEventListener("input", (event) => {
     state.strokeSize = Number(event.target.value) || 4;
   });
@@ -420,7 +450,10 @@ function wireEvents() {
   });
   document.querySelector("#notes-board")?.addEventListener("click", (event) => {
     const noteId = event.target.closest(".sticky-note")?.dataset.noteId;
-    if (noteId) state.activeNoteId = noteId;
+    if (noteId) {
+      state.activeNoteId = noteId;
+      updateToolbarVisibility();
+    }
     const deleteId = event.target.closest("[data-delete-note]")?.dataset.deleteNote;
     if (deleteId) {
       state.pendingDeleteId = deleteId;
