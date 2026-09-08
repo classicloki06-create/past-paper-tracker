@@ -5,6 +5,7 @@ import {
   doc,
   getDocs,
   serverTimestamp,
+  setDoc,
   updateDoc
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { db } from "./firebase.js";
@@ -17,6 +18,7 @@ const state = {
   user: null,
   catalogue: null,
   paper: null,
+  quickNote: null,
   notes: [],
   tool: "pen",
   strokeSize: 4,
@@ -25,6 +27,10 @@ const state = {
   saveTimers: new Map(),
   canvases: new Map()
 };
+
+function docSafeId(value) {
+  return String(value || "").replace(/[^a-zA-Z0-9_-]/g, "-");
+}
 
 function componentLabel(paper) {
   return paper.board === "Edexcel" ? `Unit ${paper.paper}` : `Paper ${paper.paper}`;
@@ -102,10 +108,13 @@ function normalizeNote(note) {
 
 async function loadNotes() {
   const snapshot = await getDocs(collection(db, "users", state.user.uid, "notes"));
-  state.notes = snapshot.docs
+  const paperNotes = snapshot.docs
     .map((noteDoc) => normalizeNote({ id: noteDoc.id, ...noteDoc.data() }))
     .filter((note) => note.catalogueId === state.catalogue.id && note.paperId === state.paper.id)
     .sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+
+  state.quickNote = paperNotes.find((note) => note.quickNote) || null;
+  state.notes = paperNotes.filter((note) => !note.quickNote);
 }
 
 function noteTemplate(note) {
@@ -155,6 +164,66 @@ state.canvases.clear();
   empty.classList.add("hidden");
   state.notes.filter((note) => note.noteMode === "drawing").forEach(setupCanvas);
   updateToolbarVisibility();
+}
+
+function quickNoteId() {
+  return `${docSafeId(state.catalogue.id)}-${docSafeId(state.paper.id)}-quick`;
+}
+
+function setQuickStatus(message, error = false) {
+  const status = document.querySelector("#quick-note-status");
+  if (!status) return;
+  status.textContent = message;
+  status.classList.toggle("error", error);
+}
+
+function renderQuickNote() {
+  const textarea = document.querySelector("#quick-note-text");
+  if (!textarea) return;
+  textarea.value = state.quickNote?.text || "";
+}
+
+function debouncedSaveQuickNote(text) {
+  const noteId = quickNoteId();
+  state.quickNote = normalizeNote({
+    ...(state.quickNote || {}),
+    id: noteId,
+    catalogueId: state.catalogue.id,
+    paperId: state.paper.id,
+    year: state.paper.year,
+    session: state.paper.session,
+    variant: state.paper.variant,
+    paper: state.paper.paper,
+    noteMode: "text",
+    quickNote: true,
+    text
+  });
+
+  setQuickStatus("Saving...");
+  clearTimeout(state.saveTimers.get(noteId));
+  state.saveTimers.set(noteId, window.setTimeout(async () => {
+    try {
+      await setDoc(doc(db, "users", state.user.uid, "notes", noteId), {
+        catalogueId: state.catalogue.id,
+        paperId: state.paper.id,
+        year: state.paper.year,
+        session: state.paper.session,
+        variant: state.paper.variant,
+        paper: state.paper.paper,
+        noteMode: "text",
+        quickNote: true,
+        noteType: "remember",
+        text,
+        drawingData: "",
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      setQuickStatus("Saved");
+    } catch (error) {
+      console.error("Could not save quick note:", error);
+      setQuickStatus("Could not save.", true);
+      showToast("Could not save note.", "error");
+    }
+  }, 550));
 }
 
 function noteById(noteId) {
@@ -455,6 +524,9 @@ function beginResize(event, noteId) {
 function wireEvents() {
   wireLogout();
   document.querySelector("#new-note-button")?.addEventListener("click", () => createNote("text"));
+  document.querySelector("#quick-note-text")?.addEventListener("input", (event) => {
+    debouncedSaveQuickNote(event.target.value);
+  });
   document.querySelector("#cancel-note-type")?.addEventListener("click", closeNoteTypeModal);
   document.querySelector("#cancel-note-type-x")?.addEventListener("click", closeNoteTypeModal);
   document.querySelector("#note-type-modal")?.addEventListener("click", (event) => {
@@ -542,6 +614,7 @@ async function initNotes(user) {
     await loadNotes();
     document.querySelector("#notes-loading")?.classList.add("hidden");
     document.querySelector("#notes-workspace")?.classList.remove("hidden");
+    renderQuickNote();
     renderNotes();
   } catch (error) {
     console.error("Could not load notes:", error);
