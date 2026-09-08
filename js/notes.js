@@ -78,16 +78,25 @@ function showError(message) {
 
 function normalizeNote(note) {
   const noteMode = note.noteMode || (note.drawingData && !note.text ? "drawing" : "text");
+  const defaultWidth = noteMode === "drawing" ? 320 : 280;
+  const defaultHeight = noteMode === "drawing" ? 300 : 220;
+  const x = Number(note.x);
+  const y = Number(note.y);
+  const width = Number(note.width);
+  const height = Number(note.height);
+
   return {
+    ...note,
     text: "",
     drawingData: "",
     noteMode,
-    x: 24,
-    y: 24,
-    width: noteMode === "drawing" ? 320 : 280,
-    height: noteMode === "drawing" ? 300 : 220,
-    noteType: "mistake",
-    ...note
+    x: Number.isFinite(x) ? Math.max(0, Math.min(x, 880)) : 24,
+    y: Number.isFinite(y) ? Math.max(0, Math.min(y, 520)) : 24,
+    width: Number.isFinite(width) ? Math.max(240, Math.min(width, 520)) : defaultWidth,
+    height: Number.isFinite(height) ? Math.max(190, Math.min(height, 460)) : defaultHeight,
+    noteType: note.noteType || "mistake",
+    text: note.text || "",
+    drawingData: note.drawingData || ""
   };
 }
 
