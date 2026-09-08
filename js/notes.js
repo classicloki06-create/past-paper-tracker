@@ -4,10 +4,8 @@ import {
   deleteDoc,
   doc,
   getDocs,
-  query,
   serverTimestamp,
-  updateDoc,
-  where
+  updateDoc
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 import { db } from "./firebase.js";
 import { requireAuth, showToast, wireLogout } from "./app.js";
@@ -94,14 +92,10 @@ function normalizeNote(note) {
 }
 
 async function loadNotes() {
-  const notesQuery = query(
-    collection(db, "users", state.user.uid, "notes"),
-    where("catalogueId", "==", state.catalogue.id),
-    where("paperId", "==", state.paper.id)
-  );
-  const snapshot = await getDocs(notesQuery);
+  const snapshot = await getDocs(collection(db, "users", state.user.uid, "notes"));
   state.notes = snapshot.docs
     .map((noteDoc) => normalizeNote({ id: noteDoc.id, ...noteDoc.data() }))
+    .filter((note) => note.catalogueId === state.catalogue.id && note.paperId === state.paper.id)
     .sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
 }
 
